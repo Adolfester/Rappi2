@@ -17,8 +17,8 @@ public class Player {
     private float velocidadY;
     private final float gravedad = -1200;
     private final float fuerzaSalto = 600;
-    private final float ancho = 60;
-    private final float alto = 60;
+    private final float ancho = 46;
+    private final float alto = 46;
     private boolean enSuelo;
 
     public Player() {

@@ -18,22 +18,19 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 
-public class MainMenu extends ScreenAdapter {
+ public class MainMenu implements Screen {
 
     private final Main game;
-
     private SpriteBatch batch;
-    private ShapeRenderer shapeRenderer;
     private BitmapFont font;
-
-    private Rectangle botonJugar;
-    private Vector3 touchPoint;
-
-    private float anchoBoton = 200;
-    private float altoBoton = 60;
+    private GlyphLayout layout;
     private OrthographicCamera camera;
     private Viewport viewport;
+     private ShapeRenderer shapeRenderer;
+     private Rectangle botonJugar;
+     private Vector3 touchPoint;
 
     public MainMenu(Main game) {
         this.game = game;
@@ -41,36 +38,39 @@ public class MainMenu extends ScreenAdapter {
 
     @Override
     public void show() {
-
         batch = new SpriteBatch();
-        shapeRenderer = new ShapeRenderer();
+
         font = new BitmapFont();
+
+        shapeRenderer = new ShapeRenderer();
 
         touchPoint = new Vector3();
 
-        botonJugar = new Rectangle();
+        botonJugar = new Rectangle(
+            0,
+            0,
+            200,
+            60
+        );
 
-        actualizarBoton();
-    }
+        layout = new GlyphLayout();
+        layout.setText(font, "RAPPIJUEGO");
 
-    private void actualizarBoton() {
+        camera = new OrthographicCamera();
 
-        float posX = (Gdx.graphics.getWidth() - anchoBoton) / 2f;
-        float posY = (Gdx.graphics.getHeight() - altoBoton) / 2f;
+        viewport = new ScreenViewport(camera);
 
-        botonJugar.set(
-            posX,
-            posY,
-            anchoBoton,
-            altoBoton
+        viewport.update(
+            Gdx.graphics.getWidth(),
+            Gdx.graphics.getHeight(),
+            true
         );
     }
 
+
+
     @Override
     public void render(float delta) {
-
-        // --- INTERACCIÓN ---
-
         if (Gdx.input.justTouched()) {
 
             touchPoint.set(
@@ -79,21 +79,18 @@ public class MainMenu extends ScreenAdapter {
                 0
             );
 
-            // Convertir coordenadas de pantalla
-            touchPoint.y = Gdx.graphics.getHeight() - touchPoint.y;
+            viewport.unproject(touchPoint);
 
-            if (botonJugar.contains(touchPoint.x, touchPoint.y)) {
+            if (botonJugar.contains(
+                touchPoint.x,
+                touchPoint.y
+            )) {
 
                 game.setScreen(new GameScreen(game));
-
-                dispose();
 
                 return;
             }
         }
-
-        // --- RENDERIZADO ---
-
         Gdx.gl.glClearColor(
             0.1f,
             0.1f,
@@ -103,7 +100,18 @@ public class MainMenu extends ScreenAdapter {
 
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // Botón
+        batch.setProjectionMatrix(camera.combined);
+
+        float x = (viewport.getWorldWidth() - layout.width) / 2f;
+        float y = (viewport.getWorldHeight() + layout.height) / 2f;
+
+        float botonX = (viewport.getWorldWidth() - botonJugar.width) / 2f;
+        float botonY = viewport.getWorldHeight() / 2f - 80;
+
+        botonJugar.setPosition(botonX, botonY);
+
+        shapeRenderer.setProjectionMatrix(camera.combined);
+
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
         shapeRenderer.setColor(
@@ -122,31 +130,61 @@ public class MainMenu extends ScreenAdapter {
 
         shapeRenderer.end();
 
-        // Texto
+        GlyphLayout layoutBoton = new GlyphLayout(font, "JUGAR");
+
+        float textoX = botonJugar.x +
+            (botonJugar.width - layoutBoton.width) / 2f;
+
+        float textoY = botonJugar.y +
+            (botonJugar.height + layoutBoton.height) / 2f;
         batch.begin();
+
 
         font.draw(
             batch,
-            "JUGAR",
-            botonJugar.x + 75,
-            botonJugar.y + 35
+            layout,
+            x,
+            y
+        );
+
+        font.draw(
+            batch,
+            layoutBoton,
+            textoX,
+            textoY
         );
 
         batch.end();
+
     }
 
-    @Override
-    public void resize(int width, int height) {
+     @Override
+     public void resize(int width, int height) {
+         viewport.update(width, height, true);
 
-        actualizarBoton();
+         camera.update();
     }
 
+     @Override
+     public void pause() {
+
+     }
+
+     @Override
+     public void resume() {
+
+     }
+
+     @Override
+     public void hide() {
+
+     }
     @Override
     public void dispose() {
-
         batch.dispose();
-        shapeRenderer.dispose();
         font.dispose();
+        shapeRenderer.dispose();
+
     }
 
 

@@ -4,6 +4,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.utils.Array;
+
 
 public class GameScreen implements Screen {
 
@@ -11,6 +13,8 @@ public class GameScreen implements Screen {
 
     private SpriteBatch batch;
     private Player player;
+    private Array<ParallaxLayer> backgroundLayers;
+    private float gameSpeed = 300f;
 
     public GameScreen(Main game) {
         this.game = game;
@@ -22,6 +26,14 @@ public class GameScreen implements Screen {
         batch = new SpriteBatch();
 
         player = new Player();
+        backgroundLayers = new Array<>();
+
+        backgroundLayers.add(new ParallaxLayer("1.png", 0.05f));   // Casi estático
+        backgroundLayers.add(new ParallaxLayer("2.png", 0.15f));  // Muy lento
+        backgroundLayers.add(new ParallaxLayer("3.png", 0.35f)); // Velocidad media
+        backgroundLayers.add(new ParallaxLayer("4.png", 0.70f));  // Más rápido
+        backgroundLayers.add(new ParallaxLayer("5.png", 0.80f));  // Más rápido
+
     }
 
     @Override
@@ -33,6 +45,16 @@ public class GameScreen implements Screen {
         player.update(delta);
 
         batch.begin();
+
+        for (ParallaxLayer layer : backgroundLayers) {
+            layer.updateAndDraw(
+                batch,
+                gameSpeed,
+                delta,
+                Gdx.graphics.getWidth(),
+                Gdx.graphics.getHeight()
+            );
+        }
 
         player.draw(batch);
 
@@ -63,7 +85,10 @@ public class GameScreen implements Screen {
     public void dispose() {
 
         batch.dispose();
-        player.dispose();
+        for (ParallaxLayer layer : backgroundLayers) {
+            layer.dispose();
+            player.dispose();
 
+        }
     }
 }
