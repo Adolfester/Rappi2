@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -31,9 +32,12 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
      private ShapeRenderer shapeRenderer;
      private Rectangle botonJugar;
      private Vector3 touchPoint;
+     private Texture logo;
 
     public MainMenu(Main game) {
         this.game = game;
+        logo = new Texture(Gdx.files.internal("rappi.png"));
+
     }
 
     @Override
@@ -54,7 +58,6 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
         );
 
         layout = new GlyphLayout();
-        layout.setText(font, "RAPPIJUEGO");
 
         camera = new OrthographicCamera();
 
@@ -105,6 +108,9 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
         float x = (viewport.getWorldWidth() - layout.width) / 2f;
         float y = (viewport.getWorldHeight() + layout.height) / 2f;
 
+        float logox = (viewport.getWorldWidth() - 200) / 2f;
+        float logoy = (viewport.getWorldHeight() + 100) / 2f;
+
         float botonX = (viewport.getWorldWidth() - botonJugar.width) / 2f;
         float botonY = viewport.getWorldHeight() / 2f - 80;
 
@@ -146,6 +152,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
             x,
             y
         );
+        batch.draw(logo, logox, logoy, 200, 100);
 
         font.draw(
             batch,

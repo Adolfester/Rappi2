@@ -15,6 +15,7 @@ public class GameScreen implements Screen {
     private Player player;
     private Array<ParallaxLayer> backgroundLayers;
     private float gameSpeed = 300f;
+    private Piso piso;
 
     public GameScreen(Main game) {
         this.game = game;
@@ -24,8 +25,9 @@ public class GameScreen implements Screen {
     public void show() {
 
         batch = new SpriteBatch();
+        piso = new Piso(40f, 4.0f);
 
-        player = new Player();
+        player = new Player(piso);
         backgroundLayers = new Array<>();
 
         backgroundLayers.add(new ParallaxLayer("1.png", 0.05f));   // Casi estático
@@ -43,7 +45,7 @@ public class GameScreen implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         player.update(delta);
-
+        piso.update(delta);
         batch.begin();
 
         for (ParallaxLayer layer : backgroundLayers) {
@@ -55,7 +57,7 @@ public class GameScreen implements Screen {
                 Gdx.graphics.getHeight()
             );
         }
-
+        piso.draw(batch);
         player.draw(batch);
 
         batch.end();
@@ -88,7 +90,7 @@ public class GameScreen implements Screen {
         for (ParallaxLayer layer : backgroundLayers) {
             layer.dispose();
             player.dispose();
-
+            piso.dispose();
         }
     }
 }
