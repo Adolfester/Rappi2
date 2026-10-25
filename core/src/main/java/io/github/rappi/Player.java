@@ -53,14 +53,16 @@ public class Player {
             enSuelo = false;
         }
 
-        // 2. CAMBIO DE CARRIL (ARRIBA / ABAJO) - Solo 1 nivel por pulsación
-        if (Gdx.input.isKeyJustPressed(Input.Keys.UP)) {
-            if (nivelActual < 2) {
-                nivelActual++;
-            }
-        } else if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN)) {
-            if (nivelActual > 0) {
-                nivelActual--;
+        // 2. CAMBIO DE CARRIL (ARRIBA / ABAJO) - Solo si está en el suelo
+        if (enSuelo) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.UP)) {
+                if (nivelActual < 2) {
+                    nivelActual++;
+                }
+            } else if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN)) {
+                if (nivelActual > 0) {
+                    nivelActual--;
+                }
             }
         }
 
