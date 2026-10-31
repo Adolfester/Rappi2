@@ -16,8 +16,8 @@ public class ScoreManager {
         this.scoreEntero = 0;
         this.baseSpeed = initialSpeed;
         this.currentSpeed = initialSpeed;
-        this.accelerationRate = 10f; // Ajusta este valor si quieres que acelere más rápido o más lento
-        this.maxSpeed = 650.0f;       // Tope máximo de velocidad (puedes ajustarlo si prefieres más o menos)
+        this.accelerationRate = 0.5f; // Ajusta este valor si quieres que acelere más rápido o más lento
+        this.maxSpeed = 780.0f;       // Tope máximo de velocidad (puedes ajustarlo si prefieres más o menos)
     }
 
     public void update(float delta) {

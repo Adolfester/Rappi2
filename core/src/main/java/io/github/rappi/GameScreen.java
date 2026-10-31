@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -31,6 +32,24 @@ public class GameScreen implements Screen {
     private ScoreManager scoreManager;
     private BitmapFont font;
     private GlyphLayout glyphLayout;
+
+    // --- SISTEMA DE CICLO DÍA / TARDE / NOCHE ---
+    private static final int INTERVALO_CAMBIO = 700;    // Puntos por cada fase
+    private static final float RANGO_TRANSICION = 100f; // Puntos de interpolación suave
+
+    // Colores de cielo (Clear color)
+    private final Color bgDia = new Color(0.5f, 0.8f, 1.0f, 1f);
+    private final Color bgTarde = new Color(0.85f, 0.45f, 0.25f, 1f);
+    private final Color bgNoche = new Color(0.05f, 0.05f, 0.2f, 1f);
+
+    // Colores de tinte para las capas del Parallax
+    private final Color tintDia = new Color(1.0f, 1.0f, 1.0f, 1f);       // Luz natural
+    private final Color tintTarde = new Color(1.0f, 0.7f, 0.5f, 1f);     // Atardecer cálido
+    private final Color tintNoche = new Color(0.35f, 0.35f, 0.65f, 1f);   // Noche azulada
+
+    // Colores que se actualizarán dinámicamente en tiempo real
+    private final Color bgActual = new Color();
+    private final Color tintActual = new Color();
 
     public GameScreen(Main game) {
         this.game = game;
@@ -85,24 +104,28 @@ public class GameScreen implements Screen {
         player.update(delta);
         piso.update(delta);
 
+        // Actualizar la transición suave de clima y color
+        actualizarAmbienteClimatico();
+
         // Actualizar matriz de proyección de la cámara en el batch
         camera.update();
         batch.setProjectionMatrix(camera.combined);
 
-        // Renderizado
-        Gdx.gl.glClearColor(0.5f, 0.8f, 1f, 1);
+        // Renderizado del fondo usando el color de cielo dinámico
+        Gdx.gl.glClearColor(bgActual.r, bgActual.g, bgActual.b, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         batch.begin();
 
-        // Renderizar fondos usando el ancho y alto del MUNDO VIRTUAL
+        // Renderizar fondos aplicando el tinte de luz actual
         for (ParallaxLayer layer : backgroundLayers) {
             layer.updateAndDraw(
                 batch,
                 velocidadActual,
                 delta,
                 viewport.getWorldWidth(),
-                viewport.getWorldHeight()
+                viewport.getWorldHeight(),
+                tintActual
             );
         }
 
@@ -120,6 +143,54 @@ public class GameScreen implements Screen {
         font.draw(batch, textoPuntaje, xTexto, yTexto);
 
         batch.end();
+    }
+
+    /**
+     * Calcula la transición entre Día -> Tarde -> Noche según el puntaje acumulado.
+     */
+    private void actualizarAmbienteClimatico() {
+        int score = scoreManager.getScore();
+
+        // Determina la fase actual (0: Día, 1: Tarde, 2: Noche)
+        int faseActual = (score / INTERVALO_CAMBIO) % 3;
+        int siguienteFase = (faseActual + 1) % 3;
+
+        // Puntos recorridos dentro de la fase actual
+        float puntosEnFase = score % INTERVALO_CAMBIO;
+
+        Color colorBgOrigen = getBgColor(faseActual);
+        Color colorBgDestino = getBgColor(siguienteFase);
+
+        Color colorTintOrigen = getTintColor(faseActual);
+        Color colorTintDestino = getTintColor(siguienteFase);
+
+        // Transición suave en los últimos 100 puntos de la fase
+        if (puntosEnFase >= (INTERVALO_CAMBIO - RANGO_TRANSICION)) {
+            float progreso = (puntosEnFase - (INTERVALO_CAMBIO - RANGO_TRANSICION)) / RANGO_TRANSICION;
+            progreso = MathUtils.clamp(progreso, 0f, 1f);
+
+            bgActual.set(colorBgOrigen).lerp(colorBgDestino, progreso);
+            tintActual.set(colorTintOrigen).lerp(colorTintDestino, progreso);
+        } else {
+            bgActual.set(colorBgOrigen);
+            tintActual.set(colorTintOrigen);
+        }
+    }
+
+    private Color getBgColor(int fase) {
+        switch (fase) {
+            case 1: return bgTarde;
+            case 2: return bgNoche;
+            default: return bgDia;
+        }
+    }
+
+    private Color getTintColor(int fase) {
+        switch (fase) {
+            case 1: return tintTarde;
+            case 2: return tintNoche;
+            default: return tintDia;
+        }
     }
 
     @Override
