@@ -73,7 +73,7 @@ public class GameScreen implements Screen {
         // 2. Creamos el piso
         piso = new Piso(40f, 4.0f);
 
-        player = new Player(piso);
+        player = new Player(piso, game.getSelectedCharacter());
         backgroundLayers = new Array<>();
 
         backgroundLayers.add(new ParallaxLayer("1.png", 0.05f));

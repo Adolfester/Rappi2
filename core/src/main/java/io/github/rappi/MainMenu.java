@@ -30,7 +30,9 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
     private OrthographicCamera camera;
     private Viewport viewport;
      private ShapeRenderer shapeRenderer;
+
      private Rectangle botonJugar;
+     private Rectangle botonPersonaje;
      private Vector3 touchPoint;
      private Texture logo;
 
@@ -56,6 +58,8 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
             200,
             60
         );
+        botonPersonaje = new Rectangle(0, 0, 200, 50);
+
 
         layout = new GlyphLayout();
 
@@ -75,7 +79,6 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
     @Override
     public void render(float delta) {
         if (Gdx.input.justTouched()) {
-
             touchPoint.set(
                 Gdx.input.getX(),
                 Gdx.input.getY(),
@@ -84,23 +87,18 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 
             viewport.unproject(touchPoint);
 
-            if (botonJugar.contains(
-                touchPoint.x,
-                touchPoint.y
-            )) {
-
+            if (botonJugar.contains(touchPoint.x, touchPoint.y)) {
                 game.setScreen(new GameScreen(game));
+                return;
+            }
 
+            if (botonPersonaje.contains(touchPoint.x, touchPoint.y)) {
+                game.setScreen(new CharacterSelectScreen(game));
                 return;
             }
         }
-        Gdx.gl.glClearColor(
-            0.1f,
-            0.1f,
-            0.15f,
-            1
-        );
 
+        Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         batch.setProjectionMatrix(camera.combined);
@@ -112,57 +110,43 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
         float logoy = (viewport.getWorldHeight() + 100) / 2f;
 
         float botonX = (viewport.getWorldWidth() - botonJugar.width) / 2f;
-        float botonY = viewport.getWorldHeight() / 2f - 80;
+        float botonJugarY = viewport.getWorldHeight() / 2f - 40;
+        float botonPersonajeY = botonJugarY - 65;
 
-        botonJugar.setPosition(botonX, botonY);
+        botonJugar.setPosition(botonX, botonJugarY);
+        botonPersonaje.setPosition(botonX, botonPersonajeY);
 
         shapeRenderer.setProjectionMatrix(camera.combined);
-
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        shapeRenderer.setColor(
-            0.2f,
-            0.7f,
-            0.3f,
-            1
-        );
+        // Botón Jugar (Verde)
+        shapeRenderer.setColor(0.2f, 0.7f, 0.3f, 1);
+        shapeRenderer.rect(botonJugar.x, botonJugar.y, botonJugar.width, botonJugar.height);
 
-        shapeRenderer.rect(
-            botonJugar.x,
-            botonJugar.y,
-            botonJugar.width,
-            botonJugar.height
-        );
+        // Botón Personaje (Naranja)
+        shapeRenderer.setColor(0.9f, 0.5f, 0.2f, 1);
+        shapeRenderer.rect(botonPersonaje.x, botonPersonaje.y, botonPersonaje.width, botonPersonaje.height);
 
         shapeRenderer.end();
 
-        GlyphLayout layoutBoton = new GlyphLayout(font, "JUGAR");
+        GlyphLayout layoutBotonJugar = new GlyphLayout(font, "JUGAR");
+        GlyphLayout layoutBotonPersonaje = new GlyphLayout(font, "PERSONAJE");
 
-        float textoX = botonJugar.x +
-            (botonJugar.width - layoutBoton.width) / 2f;
+        float textoJugarX = botonJugar.x + (botonJugar.width - layoutBotonJugar.width) / 2f;
+        float textoJugarY = botonJugar.y + (botonJugar.height + layoutBotonJugar.height) / 2f;
 
-        float textoY = botonJugar.y +
-            (botonJugar.height + layoutBoton.height) / 2f;
+        float textoPersonajeX = botonPersonaje.x + (botonPersonaje.width - layoutBotonPersonaje.width) / 2f;
+        float textoPersonajeY = botonPersonaje.y + (botonPersonaje.height + layoutBotonPersonaje.height) / 2f;
+
         batch.begin();
 
-
-        font.draw(
-            batch,
-            layout,
-            x,
-            y
-        );
+        font.draw(batch, layout, x, y);
         batch.draw(logo, logox, logoy, 200, 100);
 
-        font.draw(
-            batch,
-            layoutBoton,
-            textoX,
-            textoY
-        );
+        font.draw(batch, layoutBotonJugar, textoJugarX, textoJugarY);
+        font.draw(batch, layoutBotonPersonaje, textoPersonajeX, textoPersonajeY);
 
         batch.end();
-
     }
 
      @Override

@@ -10,6 +10,8 @@ public class Player {
 
     private Texture jugador;
     private Texture jugadorSalto;
+    private Texture jugadorCaida;
+
 
     private float x;
     private float y;
@@ -25,12 +27,34 @@ public class Player {
     private float[] posicionesY = new float[3]; // Guarda la altura de los 3 carriles
     private float ySueloActual;
 
-    private final float ancho = 69f;
-    private final float alto = 69f;
+    private final float ancho = 103f;
+    private final float alto = 103f;
 
-    public Player(Piso piso) {
-        jugador = new Texture(Gdx.files.internal("jugador_suelo.png"));
-        jugadorSalto = new Texture(Gdx.files.internal("jugador_aire.png"));
+    public Player(Piso piso, int characterId) {
+        String sueloFile = "jugador_suelo_" + characterId + ".png";
+        String aireFile = "jugador_aire_" + characterId + ".png";
+        String caidaFile = "jugador_caida_" + characterId + ".png";
+
+        if (Gdx.files.internal(sueloFile).exists()) {
+            jugador = new Texture(Gdx.files.internal(sueloFile));
+        } else {
+            jugador = new Texture(Gdx.files.internal("jugador_suelo.png"));
+        }
+
+        if (Gdx.files.internal(aireFile).exists()) {
+            jugadorSalto = new Texture(Gdx.files.internal(aireFile));
+        } else {
+            jugadorSalto = new Texture(Gdx.files.internal("jugador_aire.png"));
+        }
+
+        // Cargar sprite de caída (o usar el de salto como respaldo)
+        if (Gdx.files.internal(caidaFile).exists()) {
+            jugadorCaida = new Texture(Gdx.files.internal(caidaFile));
+        } else if (Gdx.files.internal("jugador_caida.png").exists()) {
+            jugadorCaida = new Texture(Gdx.files.internal("jugador_caida.png"));
+        } else {
+            jugadorCaida = jugadorSalto;
+        }
 
         // Obtener las posiciones exactas alineadas con la textura del suelo
         posicionesY[0] = piso.getPosYCarril(0); // Carril Abajo
@@ -87,12 +111,25 @@ public class Player {
     }
 
     public void draw(SpriteBatch batch) {
-        Texture spriteActual = enSuelo ? jugador : jugadorSalto;
+        Texture spriteActual;
+        if (enSuelo) {
+            spriteActual = jugador;
+        } else if (velocidadY < 0) {
+            // Pasó la altura máxima del salto y va descendiendo
+            spriteActual = jugadorCaida;
+        } else {
+            // Está en fase ascendente del salto
+            spriteActual = jugadorSalto;
+        }
+
         batch.draw(spriteActual, x, y, ancho, alto);
     }
 
     public void dispose() {
         jugador.dispose();
         jugadorSalto.dispose();
+        if (jugadorCaida != null && jugadorCaida != jugadorSalto) {
+            jugadorCaida.dispose();
+        }
     }
 }
