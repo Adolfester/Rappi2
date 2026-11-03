@@ -69,8 +69,8 @@ import com.badlogic.gdx.graphics.GL20;
          );
 
          // Cargar audio con resguardo si el archivo no existe aún
-         if (Gdx.files.internal("click.wav").exists()) {
-             clickSound = Gdx.audio.newSound(Gdx.files.internal("click.wav"));
+         if (Gdx.files.internal("click.mp3").exists()) {
+             clickSound = Gdx.audio.newSound(Gdx.files.internal("click.mp3"));
          }
 
          if (Gdx.files.internal("menu_music.mp3").exists()) {

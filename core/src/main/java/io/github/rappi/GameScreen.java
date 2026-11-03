@@ -99,8 +99,8 @@ public class GameScreen implements Screen {
 
         glyphLayout = new GlyphLayout();
         // Cargar audio de la partida
-        if (Gdx.files.internal("score_100.wav").exists()) {
-            score100Sound = Gdx.audio.newSound(Gdx.files.internal("score_100.wav"));
+        if (Gdx.files.internal("score_100.mp3").exists()) {
+            score100Sound = Gdx.audio.newSound(Gdx.files.internal("score_100.mp3"));
         }
 
         if (Gdx.files.internal("game_music.mp3").exists()) {

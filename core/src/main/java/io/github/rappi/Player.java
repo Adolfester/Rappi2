@@ -71,8 +71,8 @@ public class Player {
         velocidadY = 0f;
         enSuelo = true;
 
-        if (Gdx.files.internal("jump.wav").exists()) {
-            jumpSound = Gdx.audio.newSound(Gdx.files.internal("jump.wav"));
+        if (Gdx.files.internal("jump.mp3").exists()) {
+            jumpSound = Gdx.audio.newSound(Gdx.files.internal("jump.mp3"));
         }
     }
 
