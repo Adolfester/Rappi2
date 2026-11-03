@@ -20,83 +20,92 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
+import com.badlogic.gdx.graphics.GL20;
 
  public class MainMenu implements Screen {
 
-    private final Main game;
-    private SpriteBatch batch;
-    private BitmapFont font;
-    private GlyphLayout layout;
-    private OrthographicCamera camera;
-    private Viewport viewport;
+     private final Main game;
+     private SpriteBatch batch;
+     private BitmapFont font;
+     private GlyphLayout layout;
+     private OrthographicCamera camera;
+     private Viewport viewport;
      private ShapeRenderer shapeRenderer;
 
      private Rectangle botonJugar;
      private Rectangle botonPersonaje;
      private Vector3 touchPoint;
      private Texture logo;
+     private Music menuMusic;
+     private Sound clickSound;
 
-    public MainMenu(Main game) {
-        this.game = game;
-        logo = new Texture(Gdx.files.internal("rappi.png"));
+     public MainMenu(Main game) {
+         this.game = game;
+         logo = new Texture(Gdx.files.internal("rappi.png"));
+     }
 
-    }
+     @Override
+     public void show() {
+         batch = new SpriteBatch();
+         font = new BitmapFont();
+         shapeRenderer = new ShapeRenderer();
+         touchPoint = new Vector3();
 
-    @Override
-    public void show() {
-        batch = new SpriteBatch();
+         botonJugar = new Rectangle(0, 0, 200, 50);
+         botonPersonaje = new Rectangle(0, 0, 200, 50);
 
-        font = new BitmapFont();
+         layout = new GlyphLayout();
+         camera = new OrthographicCamera();
+         viewport = new ScreenViewport(camera);
 
-        shapeRenderer = new ShapeRenderer();
+         viewport.update(
+             Gdx.graphics.getWidth(),
+             Gdx.graphics.getHeight(),
+             true
+         );
 
-        touchPoint = new Vector3();
+         // Cargar audio con resguardo si el archivo no existe aún
+         if (Gdx.files.internal("click.wav").exists()) {
+             clickSound = Gdx.audio.newSound(Gdx.files.internal("click.wav"));
+         }
 
-        botonJugar = new Rectangle(
-            0,
-            0,
-            200,
-            60
-        );
-        botonPersonaje = new Rectangle(0, 0, 200, 50);
-
-
-        layout = new GlyphLayout();
-
-        camera = new OrthographicCamera();
-
-        viewport = new ScreenViewport(camera);
-
-        viewport.update(
-            Gdx.graphics.getWidth(),
-            Gdx.graphics.getHeight(),
-            true
-        );
-    }
-
+         if (Gdx.files.internal("menu_music.mp3").exists()) {
+             menuMusic = Gdx.audio.newMusic(Gdx.files.internal("menu_music.mp3"));
+             menuMusic.setLooping(true);
+             menuMusic.setVolume(0.5f);
+             menuMusic.play();
+         }
+     }
 
 
-    @Override
-    public void render(float delta) {
-        if (Gdx.input.justTouched()) {
-            touchPoint.set(
-                Gdx.input.getX(),
-                Gdx.input.getY(),
-                0
-            );
 
-            viewport.unproject(touchPoint);
+     @Override
+     public void render(float delta) {
+         if (Gdx.input.justTouched()) {
+             touchPoint.set(
+                 Gdx.input.getX(),
+                 Gdx.input.getY(),
+                 0
+             );
 
-            if (botonJugar.contains(touchPoint.x, touchPoint.y)) {
-                game.setScreen(new GameScreen(game));
-                return;
-            }
+             viewport.unproject(touchPoint);
 
-            if (botonPersonaje.contains(touchPoint.x, touchPoint.y)) {
-                game.setScreen(new CharacterSelectScreen(game));
-                return;
-            }
-        }
+             if (botonJugar.contains(touchPoint.x, touchPoint.y)) {
+                 if (clickSound != null) clickSound.play();
+                 game.setScreen(new GameScreen(game));
+                 return;
+             }
+
+             if (botonPersonaje.contains(touchPoint.x, touchPoint.y)) {
+                 if (clickSound != null) clickSound.play();
+                 game.setScreen(new CharacterSelectScreen(game));
+                 return;
+             }
+         }
 
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -168,15 +177,20 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 
      @Override
      public void hide() {
-
+         if (menuMusic != null) {
+             menuMusic.stop();
+         }
      }
-    @Override
-    public void dispose() {
-        batch.dispose();
-        font.dispose();
-        shapeRenderer.dispose();
 
-    }
+     @Override
+     public void dispose() {
+         batch.dispose();
+         font.dispose();
+         shapeRenderer.dispose();
+         logo.dispose();
+         if (clickSound != null) clickSound.dispose();
+         if (menuMusic != null) menuMusic.dispose();
+     }
 
 
 }

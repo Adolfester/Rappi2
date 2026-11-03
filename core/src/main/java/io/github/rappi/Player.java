@@ -2,6 +2,7 @@ package io.github.rappi;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
@@ -11,6 +12,8 @@ public class Player {
     private Texture jugador;
     private Texture jugadorSalto;
     private Texture jugadorCaida;
+    private Sound jumpSound;
+
 
 
     private float x;
@@ -67,6 +70,10 @@ public class Player {
 
         velocidadY = 0f;
         enSuelo = true;
+
+        if (Gdx.files.internal("jump.wav").exists()) {
+            jumpSound = Gdx.audio.newSound(Gdx.files.internal("jump.wav"));
+        }
     }
 
     public void update(float delta) {
@@ -75,6 +82,10 @@ public class Player {
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) && enSuelo) {
             velocidadY = fuerzaSalto;
             enSuelo = false;
+
+            if (jumpSound != null) {
+                jumpSound.play(0.8f);
+            }
         }
 
         // 2. CAMBIO DE CARRIL (ARRIBA / ABAJO) - Solo si está en el suelo
@@ -130,6 +141,9 @@ public class Player {
         jugadorSalto.dispose();
         if (jugadorCaida != null && jugadorCaida != jugadorSalto) {
             jugadorCaida.dispose();
+        }
+        if (jumpSound != null) {
+            jumpSound.dispose();
         }
     }
 }

@@ -2,6 +2,8 @@ package io.github.rappi;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -32,6 +34,11 @@ public class GameScreen implements Screen {
     private ScoreManager scoreManager;
     private BitmapFont font;
     private GlyphLayout glyphLayout;
+
+    // --- AUDIO DE LA PARTIDA ---
+    private Music gameMusic;
+    private Sound score100Sound;
+    private int ultimoHitoScore = 0;
 
     // --- SISTEMA DE CICLO DÍA / TARDE / NOCHE ---
     private static final int INTERVALO_CAMBIO = 700;    // Puntos por cada fase
@@ -91,6 +98,17 @@ public class GameScreen implements Screen {
         font.setColor(Color.WHITE);
 
         glyphLayout = new GlyphLayout();
+        // Cargar audio de la partida
+        if (Gdx.files.internal("score_100.wav").exists()) {
+            score100Sound = Gdx.audio.newSound(Gdx.files.internal("score_100.wav"));
+        }
+
+        if (Gdx.files.internal("game_music.mp3").exists()) {
+            gameMusic = Gdx.audio.newMusic(Gdx.files.internal("game_music.mp3"));
+            gameMusic.setLooping(true);
+            gameMusic.setVolume(0.4f);
+            gameMusic.play();
+        }
     }
 
     @Override
@@ -99,6 +117,14 @@ public class GameScreen implements Screen {
         scoreManager.update(delta);
         float velocidadActual = scoreManager.getVelocidadActual();
 
+        // Detectar hito de cada 100 puntos
+        int scoreActual = scoreManager.getScore();
+        if (scoreActual >= ultimoHitoScore + 100) {
+            ultimoHitoScore = (scoreActual / 100) * 100;
+            if (score100Sound != null) {
+                score100Sound.play(0.7f);
+            }
+        }
         piso.setVelocidad(velocidadActual);
 
         player.update(delta);
@@ -206,7 +232,11 @@ public class GameScreen implements Screen {
     public void resume() {}
 
     @Override
-    public void hide() {}
+    public void hide() {
+        if (gameMusic != null) {
+            gameMusic.stop();
+        }
+    }
 
     @Override
     public void dispose() {
@@ -217,5 +247,7 @@ public class GameScreen implements Screen {
         for (ParallaxLayer layer : backgroundLayers) {
             layer.dispose();
         }
+        if (score100Sound != null) score100Sound.dispose();
+        if (gameMusic != null) gameMusic.dispose();
     }
 }
