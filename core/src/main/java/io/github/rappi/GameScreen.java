@@ -1,6 +1,7 @@
 package io.github.rappi;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
@@ -10,7 +11,10 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -24,11 +28,16 @@ public class GameScreen implements Screen {
     private Array<ParallaxLayer> backgroundLayers;
     private Piso piso;
 
+    // --- GESTIÓN DE OBSTÁCULOS ---
+    private Array<Obstaculos> obstaculos;
+    private float tiempoSpawn = 0f;
+    private float siguienteSpawnIntervalo = 2.0f;
+
     // Cámara y Viewport para escalado automático
     private OrthographicCamera camera;
     private Viewport viewport;
-    private static final float WORLD_WIDTH = 1280f;  // Ancho lógico del juego
-    private static final float WORLD_HEIGHT = 720f; // Alto lógico del juego
+    private static final float WORLD_WIDTH = 1280f;
+    private static final float WORLD_HEIGHT = 720f;
 
     // Gestor de puntaje y fuente bitmap
     private ScoreManager scoreManager;
@@ -40,21 +49,42 @@ public class GameScreen implements Screen {
     private Sound score100Sound;
     private int ultimoHitoScore = 0;
 
-    // --- SISTEMA DE CICLO DÍA / TARDE / NOCHE ---
-    private static final int INTERVALO_CAMBIO = 700;    // Puntos por cada fase
-    private static final float RANGO_TRANSICION = 100f; // Puntos de interpolación suave
+    // --- SISTEMA DE ESTADOS DEL JUEGO ---
+    private enum EstadoJuego {
+        JUGANDO,
+        GAME_OVER
+    }
+    private EstadoJuego estadoActual = EstadoJuego.JUGANDO;
 
-    // Colores de cielo (Clear color)
+    private ShapeRenderer shapeRenderer;
+    private Rectangle botonReiniciar;
+    private Vector3 touchPoint;
+
+    // --- CLASE AUXILIAR INTERNA PARA EL ORDENAMIENTO (Y-SORTING) ---
+    private static class ElementoVisual {
+        Object objeto;
+        float y;
+        boolean esJugador;
+
+        public ElementoVisual(Object objeto, float y, boolean esJugador) {
+            this.objeto = objeto;
+            this.y = y;
+            this.esJugador = esJugador;
+        }
+    }
+
+    // --- SISTEMA DE CICLO DÍA / TARDE / NOCHE ---
+    private static final int INTERVALO_CAMBIO = 700;
+    private static final float RANGO_TRANSICION = 100f;
+
     private final Color bgDia = new Color(0.5f, 0.8f, 1.0f, 1f);
     private final Color bgTarde = new Color(0.85f, 0.45f, 0.25f, 1f);
     private final Color bgNoche = new Color(0.05f, 0.05f, 0.2f, 1f);
 
-    // Colores de tinte para las capas del Parallax
-    private final Color tintDia = new Color(1.0f, 1.0f, 1.0f, 1f);       // Luz natural
-    private final Color tintTarde = new Color(1.0f, 0.7f, 0.5f, 1f);     // Atardecer cálido
-    private final Color tintNoche = new Color(0.35f, 0.35f, 0.65f, 1f);   // Noche azulada
+    private final Color tintDia = new Color(1.0f, 1.0f, 1.0f, 1f);
+    private final Color tintTarde = new Color(1.0f, 0.7f, 0.5f, 1f);
+    private final Color tintNoche = new Color(0.35f, 0.35f, 0.65f, 1f);
 
-    // Colores que se actualizarán dinámicamente en tiempo real
     private final Color bgActual = new Color();
     private final Color tintActual = new Color();
 
@@ -65,8 +95,10 @@ public class GameScreen implements Screen {
     @Override
     public void show() {
         batch = new SpriteBatch();
+        shapeRenderer = new ShapeRenderer();
+        touchPoint = new Vector3();
+        botonReiniciar = new Rectangle(0, 0, 300, 70);
 
-        // Inicializamos cámara y viewport con dimensiones fijas
         camera = new OrthographicCamera();
         viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
         viewport.apply();
@@ -74,22 +106,21 @@ public class GameScreen implements Screen {
         camera.position.set(WORLD_WIDTH / 2f, WORLD_HEIGHT / 2f, 0);
         camera.update();
 
-        // 1. Inicializamos ScoreManager con la velocidad base (300f)
         scoreManager = new ScoreManager(300f);
-
-        // 2. Creamos el piso
         piso = new Piso(40f, 4.0f);
-
         player = new Player(piso, game.getSelectedCharacter());
+
+        obstaculos = new Array<>();
+        tiempoSpawn = 0f;
+        siguienteSpawnIntervalo = 2.2f;
+
         backgroundLayers = new Array<>();
+        backgroundLayers.add(new ParallaxLayer("Fondo/1.png", 0.05f));
+        backgroundLayers.add(new ParallaxLayer("Fondo/2.png", 0.15f));
+        backgroundLayers.add(new ParallaxLayer("Fondo/3.png", 0.35f));
+        backgroundLayers.add(new ParallaxLayer("Fondo/4.png", 0.70f));
+        backgroundLayers.add(new ParallaxLayer("Fondo/5.png", 0.80f));
 
-        backgroundLayers.add(new ParallaxLayer("1.png", 0.05f));
-        backgroundLayers.add(new ParallaxLayer("2.png", 0.15f));
-        backgroundLayers.add(new ParallaxLayer("3.png", 0.35f));
-        backgroundLayers.add(new ParallaxLayer("4.png", 0.70f));
-        backgroundLayers.add(new ParallaxLayer("5.png", 0.80f));
-
-        // Cargar fuente pixelada
         if (Gdx.files.internal("8bitOperatorPlus-Regular.fnt").exists()) {
             font = new BitmapFont(Gdx.files.internal("8bitOperatorPlus-Regular.fnt"));
         } else {
@@ -98,13 +129,17 @@ public class GameScreen implements Screen {
         font.setColor(Color.WHITE);
 
         glyphLayout = new GlyphLayout();
-        // Cargar audio de la partida
-        if (Gdx.files.internal("score_100.mp3").exists()) {
-            score100Sound = Gdx.audio.newSound(Gdx.files.internal("score_100.mp3"));
+
+        if (Gdx.files.internal("Sonidos/score_100.mp3").exists()) {
+            score100Sound = Gdx.audio.newSound(Gdx.files.internal("Sonidos/score_100.mp3"));
         }
 
-        if (Gdx.files.internal("game_music.mp3").exists()) {
-            gameMusic = Gdx.audio.newMusic(Gdx.files.internal("game_music.mp3"));
+        iniciarMusicaJuego();
+    }
+
+    private void iniciarMusicaJuego() {
+        if (Gdx.files.internal("Sonidos/game_music.mp3").exists()) {
+            gameMusic = Gdx.audio.newMusic(Gdx.files.internal("Sonidos/game_music.mp3"));
             gameMusic.setLooping(true);
             gameMusic.setVolume(0.4f);
             gameMusic.play();
@@ -113,41 +148,85 @@ public class GameScreen implements Screen {
 
     @Override
     public void render(float delta) {
-        // Actualizar puntaje y velocidad
-        scoreManager.update(delta);
-        float velocidadActual = scoreManager.getVelocidadActual();
+        // --- 1. LÓGICA DE JUEGO ---
+        if (estadoActual == EstadoJuego.JUGANDO) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.G)) {
+                activarGameOver();
+            }
 
-        // Detectar hito de cada 100 puntos
-        int scoreActual = scoreManager.getScore();
-        if (scoreActual >= ultimoHitoScore + 100) {
-            ultimoHitoScore = (scoreActual / 100) * 100;
-            if (score100Sound != null) {
-                score100Sound.play(0.7f);
+            scoreManager.update(delta);
+            float velocidadActual = scoreManager.getVelocidadActual();
+
+            int scoreActual = scoreManager.getScore();
+            if (scoreActual >= ultimoHitoScore + 100) {
+                ultimoHitoScore = (scoreActual / 100) * 100;
+                if (score100Sound != null) {
+                    score100Sound.play(0.7f);
+                }
+            }
+
+            piso.setVelocidad(velocidadActual);
+            player.update(delta);
+            piso.update(delta);
+
+            // --- GENERACIÓN PROCEDURAL DE OBSTÁCULOS ---
+            tiempoSpawn += delta;
+            float intervaloDinamico = Math.max(0.8f, siguienteSpawnIntervalo - (scoreActual / 600f));
+
+            if (tiempoSpawn >= intervaloDinamico) {
+                tiempoSpawn = 0f;
+                int carrilAleatorio = MathUtils.random(0, 2);
+                obstaculos.add(new Obstaculos(piso, carrilAleatorio, viewport.getWorldWidth()));
+                siguienteSpawnIntervalo = MathUtils.random(1.5f, 2.5f);
+            }
+
+            // Actualizar obstáculos y comprobar colisión por carril
+            for (int i = obstaculos.size - 1; i >= 0; i--) {
+                Obstaculos obs = obstaculos.get(i);
+                obs.update(delta, velocidadActual);
+
+                if (player.getNivelActual() == obs.getCarril() && player.getBounds().overlaps(obs.getBounds())) {
+                    activarGameOver();
+                }
+
+                if (obs.estaFueraDePantalla()) {
+                    obs.dispose();
+                    obstaculos.removeIndex(i);
+                }
+            }
+
+            actualizarAmbienteClimatico();
+
+        } else if (estadoActual == EstadoJuego.GAME_OVER) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+                reiniciarJuego();
+            }
+
+            if (Gdx.input.justTouched()) {
+                touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0);
+                viewport.unproject(touchPoint);
+
+                if (botonReiniciar.contains(touchPoint.x, touchPoint.y)) {
+                    reiniciarJuego();
+                }
             }
         }
-        piso.setVelocidad(velocidadActual);
 
-        player.update(delta);
-        piso.update(delta);
-
-        // Actualizar la transición suave de clima y color
-        actualizarAmbienteClimatico();
-
-        // Actualizar matriz de proyección de la cámara en el batch
+        // --- 2. RENDERIZADO ---
         camera.update();
         batch.setProjectionMatrix(camera.combined);
 
-        // Renderizado del fondo usando el color de cielo dinámico
         Gdx.gl.glClearColor(bgActual.r, bgActual.g, bgActual.b, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         batch.begin();
 
-        // Renderizar fondos aplicando el tinte de luz actual
+        float velocidadParallax = (estadoActual == EstadoJuego.JUGANDO) ? scoreManager.getVelocidadActual() : 0f;
+
         for (ParallaxLayer layer : backgroundLayers) {
             layer.updateAndDraw(
                 batch,
-                velocidadActual,
+                velocidadParallax,
                 delta,
                 viewport.getWorldWidth(),
                 viewport.getWorldHeight(),
@@ -155,11 +234,28 @@ public class GameScreen implements Screen {
             );
         }
 
-        // Dibujar el piso pasando el ancho del mundo virtual
         piso.draw(batch, viewport.getWorldWidth());
-        player.draw(batch);
 
-        // Dibujar el puntaje usando las medidas del mundo virtual (esquina superior derecha fija)
+        // --- RENDERIZADO CON ORDENAMIENTO POR PROFUNDIDAD (Y-SORTING INTERNO) ---
+        Array<ElementoVisual> elementosVisuales = new Array<>();
+        elementosVisuales.add(new ElementoVisual(player, player.getBounds().y, true));
+        for (Obstaculos obs : obstaculos) {
+            elementosVisuales.add(new ElementoVisual(obs, obs.getBounds().y, false));
+        }
+
+        // Ordenar de mayor Y a menor Y (los de arriba primero, los de abajo al final)
+        elementosVisuales.sort((e1, e2) -> Float.compare(e2.y, e1.y));
+
+        // Dibujar en el orden correcto
+        for (ElementoVisual el : elementosVisuales) {
+            if (el.esJugador) {
+                player.draw(batch);
+            } else {
+                ((Obstaculos) el.objeto).draw(batch);
+            }
+        }
+
+        // Dibujar el puntaje
         String textoPuntaje = "SCORE " + scoreManager.getScoreFormateado();
         glyphLayout.setText(font, textoPuntaje);
 
@@ -169,19 +265,82 @@ public class GameScreen implements Screen {
         font.draw(batch, textoPuntaje, xTexto, yTexto);
 
         batch.end();
+
+        // --- 3. OVERLAY DE GAME OVER ---
+        if (estadoActual == EstadoJuego.GAME_OVER) {
+            shapeRenderer.setProjectionMatrix(camera.combined);
+
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0.6f, 0.0f, 0.0f, 0.5f);
+            shapeRenderer.rect(0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
+
+            float botonX = (viewport.getWorldWidth() - botonReiniciar.width) / 2f;
+            float botonY = viewport.getWorldHeight() / 2f - 120f;
+            botonReiniciar.setPosition(botonX, botonY);
+
+            shapeRenderer.setColor(0.2f, 0.7f, 0.3f, 1f);
+            shapeRenderer.rect(botonReiniciar.x, botonReiniciar.y, botonReiniciar.width, botonReiniciar.height);
+            shapeRenderer.end();
+
+            Gdx.gl.glDisable(GL20.GL_BLEND);
+
+            batch.begin();
+            font.getData().setScale(2.5f);
+
+            String textoGameOver = "GAME OVER";
+            glyphLayout.setText(font, textoGameOver);
+            float xGameOver = (viewport.getWorldWidth() - glyphLayout.width) / 2f;
+            float yGameOver = viewport.getWorldHeight() / 2f + 80f;
+            font.draw(batch, textoGameOver, xGameOver, yGameOver);
+
+            font.getData().setScale(1.2f);
+            String textoBoton = "REINTENTAR";
+            glyphLayout.setText(font, textoBoton);
+            float xTextoBoton = botonReiniciar.x + (botonReiniciar.width - glyphLayout.width) / 2f;
+            float yTextoBoton = botonReiniciar.y + (botonReiniciar.height + glyphLayout.height) / 2f;
+            font.draw(batch, textoBoton, xTextoBoton, yTextoBoton);
+
+            font.getData().setScale(1.0f);
+            batch.end();
+        }
     }
 
-    /**
-     * Calcula la transición entre Día -> Tarde -> Noche según el puntaje acumulado.
-     */
+    private void activarGameOver() {
+        if (estadoActual == EstadoJuego.JUGANDO) {
+            estadoActual = EstadoJuego.GAME_OVER;
+            if (gameMusic != null) {
+                gameMusic.stop();
+            }
+        }
+    }
+
+    private void reiniciarJuego() {
+        for (Obstaculos obs : obstaculos) {
+            obs.dispose();
+        }
+        obstaculos.clear();
+
+        scoreManager = new ScoreManager(300f);
+        piso = new Piso(40f, 4.0f);
+        player = new Player(piso, game.getSelectedCharacter());
+        ultimoHitoScore = 0;
+        tiempoSpawn = 0f;
+        estadoActual = EstadoJuego.JUGANDO;
+
+        if (gameMusic != null) {
+            gameMusic.play();
+        }
+    }
+
     private void actualizarAmbienteClimatico() {
         int score = scoreManager.getScore();
 
-        // Determina la fase actual (0: Día, 1: Tarde, 2: Noche)
         int faseActual = (score / INTERVALO_CAMBIO) % 3;
         int siguienteFase = (faseActual + 1) % 3;
 
-        // Puntos recorridos dentro de la fase actual
         float puntosEnFase = score % INTERVALO_CAMBIO;
 
         Color colorBgOrigen = getBgColor(faseActual);
@@ -190,7 +349,6 @@ public class GameScreen implements Screen {
         Color colorTintOrigen = getTintColor(faseActual);
         Color colorTintDestino = getTintColor(siguienteFase);
 
-        // Transición suave en los últimos 100 puntos de la fase
         if (puntosEnFase >= (INTERVALO_CAMBIO - RANGO_TRANSICION)) {
             float progreso = (puntosEnFase - (INTERVALO_CAMBIO - RANGO_TRANSICION)) / RANGO_TRANSICION;
             progreso = MathUtils.clamp(progreso, 0f, 1f);
@@ -221,7 +379,6 @@ public class GameScreen implements Screen {
 
     @Override
     public void resize(int width, int height) {
-        // Vital: actualiza el viewport cuando el usuario redimensiona la ventana
         viewport.update(width, height, true);
     }
 
@@ -244,6 +401,12 @@ public class GameScreen implements Screen {
         font.dispose();
         player.dispose();
         piso.dispose();
+        shapeRenderer.dispose();
+
+        for (Obstaculos obs : obstaculos) {
+            obs.dispose();
+        }
+
         for (ParallaxLayer layer : backgroundLayers) {
             layer.dispose();
         }

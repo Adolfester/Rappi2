@@ -57,11 +57,11 @@ public class CharacterSelectScreen implements Screen {
         characterBoxes = new Rectangle[NUM_CHARACTERS];
 
         for (int i = 0; i < NUM_CHARACTERS; i++) {
-            String fileName = "jugador_suelo_" + i + ".png";
+            String fileName = "RepartidorSprites/jugador_suelo_" + i + ".png";
             if (Gdx.files.internal(fileName).exists()) {
                 characterTextures[i] = new Texture(Gdx.files.internal(fileName));
             } else {
-                characterTextures[i] = new Texture(Gdx.files.internal("jugador_suelo.png"));
+                characterTextures[i] = new Texture(Gdx.files.internal("RepartidorSprites/jugador_suelo.png"));
             }
         }
 

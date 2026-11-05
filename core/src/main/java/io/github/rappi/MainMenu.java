@@ -45,7 +45,7 @@ import com.badlogic.gdx.graphics.GL20;
 
      public MainMenu(Main game) {
          this.game = game;
-         logo = new Texture(Gdx.files.internal("rappi.png"));
+         logo = new Texture(Gdx.files.internal("Fondo/rappi.png"));
      }
 
      @Override
@@ -69,12 +69,12 @@ import com.badlogic.gdx.graphics.GL20;
          );
 
          // Cargar audio con resguardo si el archivo no existe aún
-         if (Gdx.files.internal("click.mp3").exists()) {
-             clickSound = Gdx.audio.newSound(Gdx.files.internal("click.mp3"));
+         if (Gdx.files.internal("Sonidos/click.mp3").exists()) {
+             clickSound = Gdx.audio.newSound(Gdx.files.internal("Sonidos/click.mp3"));
          }
 
-         if (Gdx.files.internal("menu_music.mp3").exists()) {
-             menuMusic = Gdx.audio.newMusic(Gdx.files.internal("menu_music.mp3"));
+         if (Gdx.files.internal("Sonidos/menu_music.mp3").exists()) {
+             menuMusic = Gdx.audio.newMusic(Gdx.files.internal("Sonidos/menu_music.mp3"));
              menuMusic.setLooping(true);
              menuMusic.setVolume(0.5f);
              menuMusic.play();

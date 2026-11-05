@@ -15,7 +15,7 @@ public class Piso {
     private float alturaCarril;
 
     public Piso(float yBase, float escala) {
-        sueloTexture = new Texture(Gdx.files.internal("la66.png"));
+        sueloTexture = new Texture(Gdx.files.internal("Fondo/la66.png"));
         sueloTexture.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.ClampToEdge);
         sueloTexture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
 
