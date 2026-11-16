@@ -2,6 +2,8 @@ package io.github.rappi;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
@@ -21,365 +23,442 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class GameScreen implements Screen {
 
-    private final Main game;
+    private final Main juego;
 
-    private SpriteBatch batch;
-    private Player player;
-    private Array<ParallaxLayer> backgroundLayers;
+    private SpriteBatch loteDibujo;
+    private Player repartidor;
+    private Patrullero patrullero;
+    private Array<ParallaxLayer> capasFondo;
     private Piso piso;
 
     // --- GESTIÓN DE OBSTÁCULOS ---
     private Array<Obstaculos> obstaculos;
-    private float tiempoSpawn = 0f;
-    private float siguienteSpawnIntervalo = 2.0f;
+    private float tiempoInicial;
+    private float distanciaHastaObstaculo;
 
     // Cámara y Viewport para escalado automático
-    private OrthographicCamera camera;
-    private Viewport viewport;
-    private static final float WORLD_WIDTH = 1280f;
-    private static final float WORLD_HEIGHT = 720f;
+    private OrthographicCamera camara;
+    private Viewport vista;
+    private static final float ANCHO_MUNDO = 1280f;
+    private static final float ALTO_MUNDO = 720f;
 
     // Gestor de puntaje y fuente bitmap
-    private ScoreManager scoreManager;
-    private BitmapFont font;
-    private GlyphLayout glyphLayout;
+    private ScoreManager gestorPuntaje;
+    private BitmapFont fuente;
+    private GlyphLayout medidasTexto;
+    private final GlyphLayout textoMarcador = new GlyphLayout();
+    private int puntajeMostrado = -1;
 
     // --- AUDIO DE LA PARTIDA ---
-    private Music gameMusic;
-    private Sound score100Sound;
-    private int ultimoHitoScore = 0;
+    private Music musicaPartida;
+    private Sound sonidoCienPuntos;
+    private Sound sonidoAuto;
+    private Sound sonidoPedido;
+    private int ultimoHitoPuntaje = 0;
 
     // --- SISTEMA DE ESTADOS DEL JUEGO ---
     private enum EstadoJuego {
         JUGANDO,
-        GAME_OVER
+        FIN_PARTIDA
     }
     private EstadoJuego estadoActual = EstadoJuego.JUGANDO;
 
-    private ShapeRenderer shapeRenderer;
+    private ShapeRenderer dibujanteFormas;
     private Rectangle botonReiniciar;
-    private Vector3 touchPoint;
+    private Vector3 puntoPulsado;
 
-    // --- CLASE AUXILIAR INTERNA PARA EL ORDENAMIENTO (Y-SORTING) ---
-    private static class ElementoVisual {
-        Object objeto;
-        float y;
-        boolean esJugador;
-
-        public ElementoVisual(Object objeto, float y, boolean esJugador) {
-            this.objeto = objeto;
-            this.y = y;
-            this.esJugador = esJugador;
-        }
-    }
+    private final Array<Pedido> pedidos = new Array<>();
+    private Texture texturaPedido;
+    private Texture[] texturasObstaculos;
+    private static final int INTERVALO_PEDIDOS = 100;
+    private int siguientePedido = INTERVALO_PEDIDOS;
+    private boolean hayPrimerObstaculo;
+    private Preferences preferencias;
+    private int record;
+    private Rectangle botonMenu;
+    private static final float PRIMER_INTERVALO = 3f;
 
     // --- SISTEMA DE CICLO DÍA / TARDE / NOCHE ---
     private static final int INTERVALO_CAMBIO = 700;
     private static final float RANGO_TRANSICION = 100f;
 
-    private final Color bgDia = new Color(0.5f, 0.8f, 1.0f, 1f);
-    private final Color bgTarde = new Color(0.85f, 0.45f, 0.25f, 1f);
-    private final Color bgNoche = new Color(0.05f, 0.05f, 0.2f, 1f);
+    private final Color fondoDia = new Color(0.5f, 0.8f, 1.0f, 1f);
+    private final Color fondoTarde = new Color(0.85f, 0.45f, 0.25f, 1f);
+    private final Color fondoNoche = new Color(0.05f, 0.05f, 0.2f, 1f);
 
-    private final Color tintDia = new Color(1.0f, 1.0f, 1.0f, 1f);
-    private final Color tintTarde = new Color(1.0f, 0.7f, 0.5f, 1f);
-    private final Color tintNoche = new Color(0.35f, 0.35f, 0.65f, 1f);
+    private final Color tinteDia = new Color(1.0f, 1.0f, 1.0f, 1f);
+    private final Color tinteTarde = new Color(1.0f, 0.7f, 0.5f, 1f);
+    private final Color tinteNoche = new Color(0.35f, 0.35f, 0.65f, 1f);
 
-    private final Color bgActual = new Color();
-    private final Color tintActual = new Color();
+    private final Color fondoActual = new Color();
+    private final Color tinteActual = new Color();
 
-    public GameScreen(Main game) {
-        this.game = game;
+    public GameScreen(Main juego) {
+        this.juego = juego;
     }
 
     @Override
     public void show() {
-        batch = new SpriteBatch();
-        shapeRenderer = new ShapeRenderer();
-        touchPoint = new Vector3();
-        botonReiniciar = new Rectangle(0, 0, 300, 70);
+        loteDibujo = new SpriteBatch();
+        dibujanteFormas = new ShapeRenderer();
+        puntoPulsado = new Vector3();
+        botonReiniciar = new Rectangle((ANCHO_MUNDO - 300f) / 2f, ALTO_MUNDO / 2f - 110f, 300f, 60f);
+        botonMenu = new Rectangle(botonReiniciar.x, botonReiniciar.y - 74f, 300f, 60f);
+        preferencias = Gdx.app.getPreferences("JuegoRappi");
+        record = preferencias.getInteger("record", 0);
+        texturasObstaculos = Obstaculos.cargarTexturas();
+        texturaPedido = new Texture(Gdx.files.internal("Obstaculos/pedido.png"));
 
-        camera = new OrthographicCamera();
-        viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
-        viewport.apply();
+        camara = new OrthographicCamera();
+        vista = new FitViewport(ANCHO_MUNDO, ALTO_MUNDO, camara);
 
-        camera.position.set(WORLD_WIDTH / 2f, WORLD_HEIGHT / 2f, 0);
-        camera.update();
-
-        scoreManager = new ScoreManager(300f);
+        gestorPuntaje = new ScoreManager(ANCHO_MUNDO);
         piso = new Piso(40f, 4.0f);
-        player = new Player(piso, game.getSelectedCharacter());
+        repartidor = new Player(piso, juego.getSelectedCharacter());
 
+        patrullero = new Patrullero(piso, ANCHO_MUNDO);
         obstaculos = new Array<>();
-        tiempoSpawn = 0f;
-        siguienteSpawnIntervalo = 2.2f;
 
-        backgroundLayers = new Array<>();
-        backgroundLayers.add(new ParallaxLayer("Fondo/1.png", 0.05f));
-        backgroundLayers.add(new ParallaxLayer("Fondo/2.png", 0.15f));
-        backgroundLayers.add(new ParallaxLayer("Fondo/3.png", 0.35f));
-        backgroundLayers.add(new ParallaxLayer("Fondo/4.png", 0.70f));
-        backgroundLayers.add(new ParallaxLayer("Fondo/5.png", 0.80f));
+        capasFondo = new Array<>();
+        capasFondo.add(new ParallaxLayer("Fondo/1.png", 0.05f));
+        capasFondo.add(new ParallaxLayer("Fondo/2.png", 0.15f));
+        capasFondo.add(new ParallaxLayer("Fondo/3.png", 0.35f));
+        capasFondo.add(new ParallaxLayer("Fondo/4.png", 0.70f));
+        capasFondo.add(new ParallaxLayer("Fondo/5.png", 0.80f));
 
         if (Gdx.files.internal("8bitOperatorPlus-Regular.fnt").exists()) {
-            font = new BitmapFont(Gdx.files.internal("8bitOperatorPlus-Regular.fnt"));
+            fuente = new BitmapFont(Gdx.files.internal("8bitOperatorPlus-Regular.fnt"));
         } else {
-            font = new BitmapFont();
+            fuente = new BitmapFont();
         }
-        font.setColor(Color.WHITE);
+        fuente.setColor(Color.WHITE);
 
-        glyphLayout = new GlyphLayout();
+        medidasTexto = new GlyphLayout();
 
         if (Gdx.files.internal("Sonidos/score_100.mp3").exists()) {
-            score100Sound = Gdx.audio.newSound(Gdx.files.internal("Sonidos/score_100.mp3"));
+            sonidoCienPuntos = Gdx.audio.newSound(Gdx.files.internal("Sonidos/score_100.mp3"));
         }
 
+        sonidoAuto = Gdx.audio.newSound(Gdx.files.internal("Sonidos/auto_pasa.wav"));
+        sonidoPedido = Gdx.audio.newSound(Gdx.files.internal("Sonidos/ñamñamñam.mp3"));
         iniciarMusicaJuego();
     }
 
     private void iniciarMusicaJuego() {
         if (Gdx.files.internal("Sonidos/game_music.mp3").exists()) {
-            gameMusic = Gdx.audio.newMusic(Gdx.files.internal("Sonidos/game_music.mp3"));
-            gameMusic.setLooping(true);
-            gameMusic.setVolume(0.4f);
-            gameMusic.play();
+            musicaPartida = Gdx.audio.newMusic(Gdx.files.internal("Sonidos/game_music.mp3"));
+            musicaPartida.setLooping(true);
+            musicaPartida.setVolume(0.4f);
+            musicaPartida.play();
         }
     }
 
     @Override
-    public void render(float delta) {
+    public void render(float segundosTranscurridos) {
+        float avance = 0f;
         // --- 1. LÓGICA DE JUEGO ---
         if (estadoActual == EstadoJuego.JUGANDO) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.G)) {
-                activarGameOver();
-            }
+            avance = actualizarPartida(Math.min(segundosTranscurridos, 1f / 20f));
 
-            scoreManager.update(delta);
-            float velocidadActual = scoreManager.getVelocidadActual();
-
-            int scoreActual = scoreManager.getScore();
-            if (scoreActual >= ultimoHitoScore + 100) {
-                ultimoHitoScore = (scoreActual / 100) * 100;
-                if (score100Sound != null) {
-                    score100Sound.play(0.7f);
-                }
-            }
-
-            piso.setVelocidad(velocidadActual);
-            player.update(delta);
-            piso.update(delta);
-
-            // --- GENERACIÓN PROCEDURAL DE OBSTÁCULOS ---
-            tiempoSpawn += delta;
-            float intervaloDinamico = Math.max(0.8f, siguienteSpawnIntervalo - (scoreActual / 600f));
-
-            if (tiempoSpawn >= intervaloDinamico) {
-                tiempoSpawn = 0f;
-                int carrilAleatorio = MathUtils.random(0, 2);
-                obstaculos.add(new Obstaculos(piso, carrilAleatorio, viewport.getWorldWidth()));
-                siguienteSpawnIntervalo = MathUtils.random(1.5f, 2.5f);
-            }
-
-            // Actualizar obstáculos y comprobar colisión por carril
-            for (int i = obstaculos.size - 1; i >= 0; i--) {
-                Obstaculos obs = obstaculos.get(i);
-                obs.update(delta, velocidadActual);
-
-                if (player.getNivelActual() == obs.getCarril() && player.getBounds().overlaps(obs.getBounds())) {
-                    activarGameOver();
-                }
-
-                if (obs.estaFueraDePantalla()) {
-                    obs.dispose();
-                    obstaculos.removeIndex(i);
-                }
-            }
-
-            actualizarAmbienteClimatico();
-
-        } else if (estadoActual == EstadoJuego.GAME_OVER) {
+        } else {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 reiniciarJuego();
-            }
+            } else if (Gdx.input.justTouched()) {
+                puntoPulsado.set(Gdx.input.getX(), Gdx.input.getY(), 0);
+                vista.unproject(puntoPulsado);
 
-            if (Gdx.input.justTouched()) {
-                touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0);
-                viewport.unproject(touchPoint);
-
-                if (botonReiniciar.contains(touchPoint.x, touchPoint.y)) {
+                if (botonReiniciar.contains(puntoPulsado.x, puntoPulsado.y)) {
                     reiniciarJuego();
+                } else if (botonMenu.contains(puntoPulsado.x, puntoPulsado.y)) {
+                    juego.setScreen(new MainMenu(juego));
+                    return;
                 }
             }
         }
 
         // --- 2. RENDERIZADO ---
-        camera.update();
-        batch.setProjectionMatrix(camera.combined);
+        loteDibujo.setProjectionMatrix(camara.combined);
 
-        Gdx.gl.glClearColor(bgActual.r, bgActual.g, bgActual.b, 1);
+        Gdx.gl.glClearColor(fondoActual.r, fondoActual.g, fondoActual.b, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        batch.begin();
+        loteDibujo.begin();
 
-        float velocidadParallax = (estadoActual == EstadoJuego.JUGANDO) ? scoreManager.getVelocidadActual() : 0f;
-
-        for (ParallaxLayer layer : backgroundLayers) {
-            layer.updateAndDraw(
-                batch,
-                velocidadParallax,
-                delta,
-                viewport.getWorldWidth(),
-                viewport.getWorldHeight(),
-                tintActual
+        for (ParallaxLayer capa : capasFondo) {
+            capa.updateAndDraw(
+                loteDibujo,
+                avance,
+                vista.getWorldWidth(),
+                vista.getWorldHeight(),
+                tinteActual
             );
         }
 
-        piso.draw(batch, viewport.getWorldWidth());
+        piso.draw(loteDibujo, vista.getWorldWidth());
 
-        // --- RENDERIZADO CON ORDENAMIENTO POR PROFUNDIDAD (Y-SORTING INTERNO) ---
-        Array<ElementoVisual> elementosVisuales = new Array<>();
-        elementosVisuales.add(new ElementoVisual(player, player.getBounds().y, true));
-        for (Obstaculos obs : obstaculos) {
-            elementosVisuales.add(new ElementoVisual(obs, obs.getBounds().y, false));
+        // El carril determina la profundidad incluso durante el salto.
+        for (int carril = 2; carril >= 0; carril--) {
+            for (Obstaculos obstaculo : obstaculos) {
+                if (obstaculo.getCarril() == carril) obstaculo.draw(loteDibujo);
+            }
+            for (Pedido pedido : pedidos) {
+                if (pedido.carril == carril) pedido.draw(loteDibujo, texturaPedido);
+            }
+            patrullero.dibujarCarril(loteDibujo, carril);
+            if (repartidor.getNivelActual() == carril) repartidor.draw(loteDibujo);
         }
 
-        // Ordenar de mayor Y a menor Y (los de arriba primero, los de abajo al final)
-        elementosVisuales.sort((e1, e2) -> Float.compare(e2.y, e1.y));
-
-        // Dibujar en el orden correcto
-        for (ElementoVisual el : elementosVisuales) {
-            if (el.esJugador) {
-                player.draw(batch);
-            } else {
-                ((Obstaculos) el.objeto).draw(batch);
+        if (estadoActual == EstadoJuego.JUGANDO) {
+            if (patrullero.obtenerFase() == Patrullero.Fase.ALERTA) {
+                patrullero.dibujarAlerta(loteDibujo, ALTO_MUNDO);
+                fuente.getData().setScale(2.5f);
+                dibujarCentrado("PELIGRO", ALTO_MUNDO / 2f);
+                fuente.getData().setScale(1f);
+            } else if (patrullero.obtenerFase() == Patrullero.Fase.PERSECUCION) {
+                dibujarCentrado("ESQUIVA   " + patrullero.segundosRestantes() + " s", ALTO_MUNDO - 40f);
             }
         }
 
         // Dibujar el puntaje
-        String textoPuntaje = "SCORE " + scoreManager.getScoreFormateado();
-        glyphLayout.setText(font, textoPuntaje);
+        int puntaje = gestorPuntaje.getScore();
+        if (puntaje != puntajeMostrado) {
+            textoMarcador.setText(fuente, "SCORE " + gestorPuntaje.getScoreFormateado());
+            puntajeMostrado = puntaje;
+        }
+        fuente.draw(loteDibujo, textoMarcador, ANCHO_MUNDO - textoMarcador.width - 30f, ALTO_MUNDO - 30f);
 
-        float xTexto = viewport.getWorldWidth() - glyphLayout.width - 30f;
-        float yTexto = viewport.getWorldHeight() - 30f;
-
-        font.draw(batch, textoPuntaje, xTexto, yTexto);
-
-        batch.end();
+        loteDibujo.end();
 
         // --- 3. OVERLAY DE GAME OVER ---
-        if (estadoActual == EstadoJuego.GAME_OVER) {
-            shapeRenderer.setProjectionMatrix(camera.combined);
+        if (estadoActual == EstadoJuego.FIN_PARTIDA) {
+            dibujanteFormas.setProjectionMatrix(camara.combined);
 
             Gdx.gl.glEnable(GL20.GL_BLEND);
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(0.6f, 0.0f, 0.0f, 0.5f);
-            shapeRenderer.rect(0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
+            dibujanteFormas.begin(ShapeRenderer.ShapeType.Filled);
+            dibujanteFormas.setColor(0.6f, 0.0f, 0.0f, 0.5f);
+            dibujanteFormas.rect(0, 0, vista.getWorldWidth(), vista.getWorldHeight());
 
-            float botonX = (viewport.getWorldWidth() - botonReiniciar.width) / 2f;
-            float botonY = viewport.getWorldHeight() / 2f - 120f;
-            botonReiniciar.setPosition(botonX, botonY);
-
-            shapeRenderer.setColor(0.2f, 0.7f, 0.3f, 1f);
-            shapeRenderer.rect(botonReiniciar.x, botonReiniciar.y, botonReiniciar.width, botonReiniciar.height);
-            shapeRenderer.end();
+            dibujanteFormas.setColor(0.2f, 0.7f, 0.3f, 1f);
+            dibujanteFormas.rect(botonReiniciar.x, botonReiniciar.y, botonReiniciar.width, botonReiniciar.height);
+            dibujanteFormas.setColor(0.22f, 0.32f, 0.49f, 1f);
+            dibujanteFormas.rect(botonMenu.x, botonMenu.y, botonMenu.width, botonMenu.height);
+            dibujanteFormas.end();
 
             Gdx.gl.glDisable(GL20.GL_BLEND);
 
-            batch.begin();
-            font.getData().setScale(2.5f);
+            loteDibujo.begin();
+            // Medimos la fila con la fuente activa para respetar los márgenes.
+            fuente.getData().setScale(1.2f);
+            String resultados = "PUNTAJE " + gestorPuntaje.getScore() + "    RECORD " + record;
+            medidasTexto.setText(fuente, resultados);
+            float baseResultados = botonReiniciar.y + botonReiniciar.height + 40f;
+            float topeResultados = baseResultados + medidasTexto.height;
+            fuente.draw(loteDibujo, medidasTexto, (ANCHO_MUNDO - medidasTexto.width) / 2f, topeResultados);
 
-            String textoGameOver = "GAME OVER";
-            glyphLayout.setText(font, textoGameOver);
-            float xGameOver = (viewport.getWorldWidth() - glyphLayout.width) / 2f;
-            float yGameOver = viewport.getWorldHeight() / 2f + 80f;
-            font.draw(batch, textoGameOver, xGameOver, yGameOver);
+            fuente.getData().setScale(2.5f);
+            medidasTexto.setText(fuente, "GAME OVER");
+            float topeTitulo = topeResultados + 80f + medidasTexto.height;
+            fuente.draw(loteDibujo, medidasTexto, (ANCHO_MUNDO - medidasTexto.width) / 2f, topeTitulo);
 
-            font.getData().setScale(1.2f);
-            String textoBoton = "REINTENTAR";
-            glyphLayout.setText(font, textoBoton);
-            float xTextoBoton = botonReiniciar.x + (botonReiniciar.width - glyphLayout.width) / 2f;
-            float yTextoBoton = botonReiniciar.y + (botonReiniciar.height + glyphLayout.height) / 2f;
-            font.draw(batch, textoBoton, xTextoBoton, yTextoBoton);
-
-            font.getData().setScale(1.0f);
-            batch.end();
+            fuente.getData().setScale(1.2f);
+            dibujarCentrado("REINTENTAR", botonReiniciar.y + botonReiniciar.height / 2f);
+            dibujarCentrado("MENU PRINCIPAL", botonMenu.y + botonMenu.height / 2f);
+            fuente.getData().setScale(1.0f);
+            loteDibujo.end();
         }
+    }
+
+    private float actualizarPartida(float segundosTranscurridos) {
+        float avance = gestorPuntaje.update(segundosTranscurridos);
+
+        int puntajeActual = gestorPuntaje.getScore();
+        if (puntajeActual >= ultimoHitoPuntaje + 100) {
+            ultimoHitoPuntaje = (puntajeActual / 100) * 100;
+            if (sonidoCienPuntos != null) {
+                sonidoCienPuntos.play(0.7f);
+            }
+        }
+
+        repartidor.update(segundosTranscurridos, patrullero.destinoJugador());
+        piso.avanzar(avance, ANCHO_MUNDO);
+
+        generarPedidoSiCorresponde();
+
+        // Actualizar obstáculos y comprobar colisión por carril
+        int carrilJugador = repartidor.getNivelActual();
+        Rectangle zonaJugador = repartidor.getBounds();
+        boolean pasoUnAuto = false;
+        for (int i = obstaculos.size - 1; i >= 0; i--) {
+            Obstaculos obstaculo = obstaculos.get(i);
+            obstaculo.avanzar(avance);
+
+            if (!patrullero.estaEmbistiendo(obstaculo) && carrilJugador == obstaculo.getCarril() && zonaJugador.overlaps(obstaculo.getBounds())) {
+                activarGameOver();
+            } else if (obstaculo.acabaDePasarCerca(zonaJugador.x, carrilJugador)) {
+                pasoUnAuto = true;
+            }
+
+            if (obstaculo.estaFueraDePantalla()) {
+                obstaculos.removeIndex(i);
+            }
+        }
+
+        if (pasoUnAuto && estadoActual == EstadoJuego.JUGANDO) {
+            sonidoAuto.play(0.55f);
+        }
+
+        for (int i = pedidos.size - 1; i >= 0; i--) {
+            Pedido pedido = pedidos.get(i);
+            pedido.zonaColision.x -= avance;
+            if (estadoActual == EstadoJuego.JUGANDO && carrilJugador == pedido.carril
+                    && zonaJugador.overlaps(pedido.zonaColision)) {
+                gestorPuntaje.sumarPedido();
+                sonidoPedido.play(0.8f);
+                pedidos.removeIndex(i);
+            } else if (pedido.zonaColision.x + pedido.zonaColision.width < 0f) {
+                pedidos.removeIndex(i);
+            }
+        }
+        if (estadoActual == EstadoJuego.JUGANDO) {
+            Patrullero.Fase anterior = patrullero.obtenerFase();
+            if (patrullero.actualizar(segundosTranscurridos, avance, gestorPuntaje.getScore(), repartidor, obstaculos)) {
+                activarGameOver();
+            } else if (musicaPartida != null && anterior != patrullero.obtenerFase()) {
+                if (patrullero.obtenerFase() == Patrullero.Fase.ALERTA) musicaPartida.pause();
+                if (patrullero.obtenerFase() == Patrullero.Fase.AUSENTE) musicaPartida.play();
+            }
+        }
+        // El pedido puede activar la alerta en este mismo fotograma.
+        if (estadoActual == EstadoJuego.JUGANDO && patrullero.obtenerFase() != Patrullero.Fase.ALERTA) {
+            generarObstaculoSiCorresponde(segundosTranscurridos, avance);
+        }
+        actualizarAmbienteClimatico();
+        return avance;
+    }
+
+    private void generarObstaculoSiCorresponde(float segundosTranscurridos, float avance) {
+        // --- GENERACIÓN PROCEDURAL DE OBSTÁCULOS ---
+        tiempoInicial += segundosTranscurridos;
+        if (hayPrimerObstaculo) distanciaHastaObstaculo -= avance;
+
+        if (tiempoInicial >= PRIMER_INTERVALO && distanciaHastaObstaculo <= 0f) {
+            int carrilAleatorio = MathUtils.random(0, 2);
+            if (pedidos.size > 0) {
+                Pedido ultimo = pedidos.peek();
+                if (ultimo.zonaColision.x + ultimo.zonaColision.width >= ANCHO_MUNDO && carrilAleatorio == ultimo.carril) {
+                    carrilAleatorio = (carrilAleatorio + MathUtils.random(1, 2)) % 3;
+                }
+            }
+            int tipo = MathUtils.random(texturasObstaculos.length - 1);
+            Obstaculos nuevo = new Obstaculos(piso, carrilAleatorio, ANCHO_MUNDO, tipo, texturasObstaculos[tipo]);
+            obstaculos.add(nuevo);
+            hayPrimerObstaculo = true;
+            distanciaHastaObstaculo += gestorPuntaje.distanciaEntreObstaculos(
+                    nuevo.getAncho(), MathUtils.random(1f, 1.5f));
+        }
+    }
+
+    private void generarPedidoSiCorresponde() {
+        if (gestorPuntaje.getPuntosPorDistancia() >= siguientePedido) {
+            int carrilPedido = MathUtils.random(0, 2);
+            if (obstaculos.size > 0) {
+                int carrilUltimo = obstaculos.peek().getCarril();
+                carrilPedido = (carrilUltimo + MathUtils.random(1, 2)) % 3;
+            }
+            pedidos.add(new Pedido(piso, carrilPedido, ANCHO_MUNDO));
+            siguientePedido += INTERVALO_PEDIDOS;
+        }
+    }
+
+    private void dibujarCentrado(String texto, float centroY) {
+        medidasTexto.setText(fuente, texto);
+        fuente.draw(loteDibujo, medidasTexto, (ANCHO_MUNDO - medidasTexto.width) / 2f,
+                centroY + medidasTexto.height / 2f);
     }
 
     private void activarGameOver() {
         if (estadoActual == EstadoJuego.JUGANDO) {
-            estadoActual = EstadoJuego.GAME_OVER;
-            if (gameMusic != null) {
-                gameMusic.stop();
+            estadoActual = EstadoJuego.FIN_PARTIDA;
+            patrullero.detenerAudio();
+            if (gestorPuntaje.getScore() > record) {
+                record = gestorPuntaje.getScore();
+                preferencias.putInteger("record", record);
+                preferencias.flush();
+            }
+            if (musicaPartida != null) {
+                musicaPartida.stop();
             }
         }
     }
 
     private void reiniciarJuego() {
-        for (Obstaculos obs : obstaculos) {
-            obs.dispose();
-        }
         obstaculos.clear();
-
-        scoreManager = new ScoreManager(300f);
-        piso = new Piso(40f, 4.0f);
-        player = new Player(piso, game.getSelectedCharacter());
-        ultimoHitoScore = 0;
-        tiempoSpawn = 0f;
+        pedidos.clear();
+        hayPrimerObstaculo = false;
+        siguientePedido = INTERVALO_PEDIDOS;
+        patrullero.reiniciar();
+        gestorPuntaje.reset();
+        piso.reset();
+        repartidor.reset();
+        for (ParallaxLayer capa : capasFondo) capa.reset();
+        distanciaHastaObstaculo = 0f;
+        actualizarAmbienteClimatico();
+        ultimoHitoPuntaje = 0;
+        tiempoInicial = 0f;
         estadoActual = EstadoJuego.JUGANDO;
 
-        if (gameMusic != null) {
-            gameMusic.play();
+        if (musicaPartida != null) {
+            musicaPartida.play();
         }
     }
 
     private void actualizarAmbienteClimatico() {
-        int score = scoreManager.getScore();
+        int puntaje = gestorPuntaje.getScore();
 
-        int faseActual = (score / INTERVALO_CAMBIO) % 3;
+        int faseActual = (puntaje / INTERVALO_CAMBIO) % 3;
         int siguienteFase = (faseActual + 1) % 3;
 
-        float puntosEnFase = score % INTERVALO_CAMBIO;
+        float puntosEnFase = puntaje % INTERVALO_CAMBIO;
 
-        Color colorBgOrigen = getBgColor(faseActual);
-        Color colorBgDestino = getBgColor(siguienteFase);
+        Color colorFondoOrigen = getBgColor(faseActual);
+        Color colorFondoDestino = getBgColor(siguienteFase);
 
-        Color colorTintOrigen = getTintColor(faseActual);
-        Color colorTintDestino = getTintColor(siguienteFase);
+        Color tinteOrigen = getTintColor(faseActual);
+        Color tinteDestino = getTintColor(siguienteFase);
 
         if (puntosEnFase >= (INTERVALO_CAMBIO - RANGO_TRANSICION)) {
             float progreso = (puntosEnFase - (INTERVALO_CAMBIO - RANGO_TRANSICION)) / RANGO_TRANSICION;
             progreso = MathUtils.clamp(progreso, 0f, 1f);
 
-            bgActual.set(colorBgOrigen).lerp(colorBgDestino, progreso);
-            tintActual.set(colorTintOrigen).lerp(colorTintDestino, progreso);
+            fondoActual.set(colorFondoOrigen).lerp(colorFondoDestino, progreso);
+            tinteActual.set(tinteOrigen).lerp(tinteDestino, progreso);
         } else {
-            bgActual.set(colorBgOrigen);
-            tintActual.set(colorTintOrigen);
+            fondoActual.set(colorFondoOrigen);
+            tinteActual.set(tinteOrigen);
         }
     }
 
     private Color getBgColor(int fase) {
         switch (fase) {
-            case 1: return bgTarde;
-            case 2: return bgNoche;
-            default: return bgDia;
+            case 1: return fondoTarde;
+            case 2: return fondoNoche;
+            default: return fondoDia;
         }
     }
 
     private Color getTintColor(int fase) {
         switch (fase) {
-            case 1: return tintTarde;
-            case 2: return tintNoche;
-            default: return tintDia;
+            case 1: return tinteTarde;
+            case 2: return tinteNoche;
+            default: return tinteDia;
         }
     }
 
     @Override
-    public void resize(int width, int height) {
-        viewport.update(width, height, true);
+    public void resize(int ancho, int alto) {
+        vista.update(ancho, alto, true);
     }
 
     @Override
@@ -390,27 +469,30 @@ public class GameScreen implements Screen {
 
     @Override
     public void hide() {
-        if (gameMusic != null) {
-            gameMusic.stop();
+        patrullero.detenerAudio();
+        if (musicaPartida != null) {
+            musicaPartida.stop();
         }
     }
 
     @Override
     public void dispose() {
-        batch.dispose();
-        font.dispose();
-        player.dispose();
+        loteDibujo.dispose();
+        fuente.dispose();
+        patrullero.liberar();
+        repartidor.dispose();
         piso.dispose();
-        shapeRenderer.dispose();
+        dibujanteFormas.dispose();
 
-        for (Obstaculos obs : obstaculos) {
-            obs.dispose();
-        }
+        for (Texture textura : texturasObstaculos) textura.dispose();
+        texturaPedido.dispose();
 
-        for (ParallaxLayer layer : backgroundLayers) {
-            layer.dispose();
+        for (ParallaxLayer capa : capasFondo) {
+            capa.dispose();
         }
-        if (score100Sound != null) score100Sound.dispose();
-        if (gameMusic != null) gameMusic.dispose();
+        sonidoAuto.dispose();
+        sonidoPedido.dispose();
+        if (sonidoCienPuntos != null) sonidoCienPuntos.dispose();
+        if (musicaPartida != null) musicaPartida.dispose();
     }
 }

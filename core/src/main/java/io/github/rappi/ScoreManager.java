@@ -1,55 +1,58 @@
 package io.github.rappi;
 
 public class ScoreManager {
+    // Ritmo del Dino clásico en una pista de 600 unidades, a 60 Hz.
+    private static final double INICIAL = 360.0;
+    private static final double MAXIMA = 780.0;
+    private static final double ACELERACION = 3.6;
+    private final float escala;
+    private double velocidad = INICIAL;
+    private double distancia;
+    private int bonificacion;
 
-    private float score;
-    private int scoreEntero;
-
-    // Variables para el control de velocidad dinámica
-    private float currentSpeed;
-    private float baseSpeed;
-    private float accelerationRate;
-    private float maxSpeed; // Límite máximo de velocidad
-
-    public ScoreManager(float initialSpeed) {
-        this.score = 0f;
-        this.scoreEntero = 0;
-        this.baseSpeed = initialSpeed;
-        this.currentSpeed = initialSpeed;
-        this.accelerationRate = 0.5f; // Ajusta este valor si quieres que acelere más rápido o más lento
-        this.maxSpeed = 780.0f;       // Tope máximo de velocidad (puedes ajustarlo si prefieres más o menos)
+    public ScoreManager(float anchoMundo) {
+        escala = anchoMundo / 600f;
     }
 
-    public void update(float delta) {
-        // Se corrige el operador de multiplicación y se escala con la velocidad actual
-        score += delta * 10f * (currentSpeed / baseSpeed);
-        scoreEntero = (int) score;
-
-        // La velocidad aumenta gradualmente con el paso del tiempo
-        if (currentSpeed < maxSpeed) {
-            currentSpeed += accelerationRate * delta;
-            if (currentSpeed > maxSpeed) {
-                currentSpeed = maxSpeed;
-            }
-        }
-    }
-
-    public int getScore() {
-        return scoreEntero;
+    // Devuelve el avance de este fotograma en unidades del mundo de Rappi.
+    public float update(float segundosTranscurridos) {
+        double acelerando = Math.min(segundosTranscurridos, (MAXIMA - velocidad) / ACELERACION);
+        double avance = velocidad * acelerando + 0.5 * ACELERACION * acelerando * acelerando
+                + MAXIMA * (segundosTranscurridos - acelerando);
+        velocidad = Math.min(MAXIMA, velocidad + ACELERACION * acelerando);
+        distancia += avance;
+        return (float) (avance * escala);
     }
 
     public float getVelocidadActual() {
-        return currentSpeed;
+        return (float) velocidad * escala;
     }
 
-    // Devuelve el puntaje formateado a 5 dígitos con ceros a la izquierda (ej: "00042")
+    public float distanciaEntreObstaculos(float ancho, float variacion) {
+        float velocidadPorFotograma = (float) velocidad / 60f;
+        float huecoMinimo = ancho * velocidadPorFotograma + 120f * 0.6f * escala;
+        return ancho + huecoMinimo * variacion;
+    }
+
+    public void sumarPedido() {
+        bonificacion += 25;
+    }
+
+    public int getPuntosPorDistancia() {
+        return (int) Math.round(distancia * 0.025);
+    }
+
+    public int getScore() {
+        return getPuntosPorDistancia() + bonificacion;
+    }
+
     public String getScoreFormateado() {
-        return String.format("%01d", scoreEntero);
+        return String.format("%05d", getScore());
     }
 
     public void reset() {
-        score = 0f;
-        scoreEntero = 0;
-        currentSpeed = baseSpeed;
+        velocidad = INICIAL;
+        distancia = 0;
+        bonificacion = 0;
     }
 }

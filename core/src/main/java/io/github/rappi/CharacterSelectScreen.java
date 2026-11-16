@@ -17,83 +17,83 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class CharacterSelectScreen implements Screen {
 
-    private final Main game;
-    private SpriteBatch batch;
-    private ShapeRenderer shapeRenderer;
-    private BitmapFont font;
-    private GlyphLayout layout;
+    private final Main juego;
+    private SpriteBatch loteDibujo;
+    private ShapeRenderer dibujanteFormas;
+    private BitmapFont fuente;
+    private GlyphLayout medidasTexto;
 
-    private OrthographicCamera camera;
-    private Viewport viewport;
-    private Vector3 touchPoint;
+    private OrthographicCamera camara;
+    private Viewport vista;
+    private Vector3 puntoPulsado;
 
-    private final int NUM_CHARACTERS = 4;
-    private Texture[] characterTextures;
-    private Rectangle[] characterBoxes;
-    private Rectangle btnVolver;
+    private static final int CANTIDAD_PERSONAJES = 4;
+    private final String[] etiquetas = new String[CANTIDAD_PERSONAJES];
+    private Texture[] texturasPersonajes;
+    private Rectangle[] recuadrosPersonajes;
+    private Rectangle botonVolver;
 
-    public CharacterSelectScreen(Main game) {
-        this.game = game;
+    public CharacterSelectScreen(Main juego) {
+        this.juego = juego;
     }
 
     @Override
     public void show() {
-        batch = new SpriteBatch();
-        shapeRenderer = new ShapeRenderer();
+        loteDibujo = new SpriteBatch();
+        dibujanteFormas = new ShapeRenderer();
         if (Gdx.files.internal("8bitOperatorPlus-Regular.fnt").exists()) {
-            font = new BitmapFont(Gdx.files.internal("8bitOperatorPlus-Regular.fnt"));
+            fuente = new BitmapFont(Gdx.files.internal("8bitOperatorPlus-Regular.fnt"));
         } else {
-            font = new BitmapFont();
+            fuente = new BitmapFont();
         }
-        layout = new GlyphLayout();
-        touchPoint = new Vector3();
+        medidasTexto = new GlyphLayout();
+        puntoPulsado = new Vector3();
 
-        camera = new OrthographicCamera();
-        viewport = new FitViewport(1280, 720, camera);
-        viewport.apply();
-        camera.position.set(1280 / 2f, 720 / 2f, 0);
+        camara = new OrthographicCamera();
+        vista = new FitViewport(1280, 720, camara);
 
-        characterTextures = new Texture[NUM_CHARACTERS];
-        characterBoxes = new Rectangle[NUM_CHARACTERS];
+        texturasPersonajes = new Texture[CANTIDAD_PERSONAJES];
+        recuadrosPersonajes = new Rectangle[CANTIDAD_PERSONAJES];
 
-        for (int i = 0; i < NUM_CHARACTERS; i++) {
-            String fileName = "RepartidorSprites/jugador_suelo_" + i + ".png";
-            if (Gdx.files.internal(fileName).exists()) {
-                characterTextures[i] = new Texture(Gdx.files.internal(fileName));
+        for (int i = 0; i < CANTIDAD_PERSONAJES; i++) {
+            etiquetas[i] = "P" + (i + 1);
+            String nombreArchivo = "RepartidorSprites/jugador_suelo_" + i + ".png";
+            if (Gdx.files.internal(nombreArchivo).exists()) {
+                texturasPersonajes[i] = new Texture(Gdx.files.internal(nombreArchivo));
             } else {
-                characterTextures[i] = new Texture(Gdx.files.internal("RepartidorSprites/jugador_suelo.png"));
+                texturasPersonajes[i] = new Texture(Gdx.files.internal("RepartidorSprites/jugador_suelo.png"));
             }
         }
 
-        float boxWidth = 140f;
-        float boxHeight = 140f;
-        float spacing = 30f;
-        float totalWidth = (NUM_CHARACTERS * boxWidth) + ((NUM_CHARACTERS - 1) * spacing);
-        float startX = (1280f - totalWidth) / 2f;
-        float startY = (720f - boxHeight) / 2f;
+        float anchoRecuadro = 140f;
+        float altoRecuadro = 140f;
+        float separacion = 30f;
+        float anchoTotal = (CANTIDAD_PERSONAJES * anchoRecuadro) + ((CANTIDAD_PERSONAJES - 1) * separacion);
+        float inicioX = (1280f - anchoTotal) / 2f;
+        float inicioY = (720f - altoRecuadro) / 2f;
 
-        for (int i = 0; i < NUM_CHARACTERS; i++) {
-            characterBoxes[i] = new Rectangle(startX + i * (boxWidth + spacing), startY, boxWidth, boxHeight);
+        for (int i = 0; i < CANTIDAD_PERSONAJES; i++) {
+            recuadrosPersonajes[i] = new Rectangle(inicioX + i * (anchoRecuadro + separacion), inicioY, anchoRecuadro, altoRecuadro);
         }
 
-        btnVolver = new Rectangle((1280f - 200f) / 2f, 100f, 200f, 50f);
+        botonVolver = new Rectangle((1280f - 200f) / 2f, 100f, 200f, 50f);
     }
 
     @Override
-    public void render(float delta) {
+    public void render(float segundosTranscurridos) {
         if (Gdx.input.justTouched()) {
-            touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0);
-            viewport.unproject(touchPoint);
+            puntoPulsado.set(Gdx.input.getX(), Gdx.input.getY(), 0);
+            vista.unproject(puntoPulsado);
 
-            for (int i = 0; i < NUM_CHARACTERS; i++) {
-                if (characterBoxes[i].contains(touchPoint.x, touchPoint.y)) {
-                    game.setSelectedCharacter(i);
+            for (int i = 0; i < CANTIDAD_PERSONAJES; i++) {
+                if (recuadrosPersonajes[i].contains(puntoPulsado.x, puntoPulsado.y)) {
+                    juego.setSelectedCharacter(i);
                     break;
                 }
             }
 
-            if (btnVolver.contains(touchPoint.x, touchPoint.y)) {
-                game.setScreen(new MainMenu(game));
+            if (botonVolver.contains(puntoPulsado.x, puntoPulsado.y)) {
+                juego.setScreen(new MainMenu(juego));
                 return;
             }
         }
@@ -101,59 +101,57 @@ public class CharacterSelectScreen implements Screen {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        camera.update();
-        shapeRenderer.setProjectionMatrix(camera.combined);
+        dibujanteFormas.setProjectionMatrix(camara.combined);
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < NUM_CHARACTERS; i++) {
-            if (game.getSelectedCharacter() == i) {
-                shapeRenderer.setColor(0.9f, 0.8f, 0.2f, 1);
+        dibujanteFormas.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < CANTIDAD_PERSONAJES; i++) {
+            if (juego.getSelectedCharacter() == i) {
+                dibujanteFormas.setColor(0.9f, 0.8f, 0.2f, 1);
             } else {
-                shapeRenderer.setColor(0.2f, 0.25f, 0.35f, 1);
+                dibujanteFormas.setColor(0.2f, 0.25f, 0.35f, 1);
             }
-            shapeRenderer.rect(characterBoxes[i].x, characterBoxes[i].y, characterBoxes[i].width, characterBoxes[i].height);
+            dibujanteFormas.rect(recuadrosPersonajes[i].x, recuadrosPersonajes[i].y, recuadrosPersonajes[i].width, recuadrosPersonajes[i].height);
         }
 
-        shapeRenderer.setColor(0.8f, 0.3f, 0.3f, 1);
-        shapeRenderer.rect(btnVolver.x, btnVolver.y, btnVolver.width, btnVolver.height);
-        shapeRenderer.end();
+        dibujanteFormas.setColor(0.8f, 0.3f, 0.3f, 1);
+        dibujanteFormas.rect(botonVolver.x, botonVolver.y, botonVolver.width, botonVolver.height);
+        dibujanteFormas.end();
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        dibujanteFormas.begin(ShapeRenderer.ShapeType.Line);
         Gdx.gl.glLineWidth(3);
-        shapeRenderer.setColor(Color.WHITE);
-        for (int i = 0; i < NUM_CHARACTERS; i++) {
-            shapeRenderer.rect(characterBoxes[i].x + 5, characterBoxes[i].y + 5, characterBoxes[i].width - 10, characterBoxes[i].height - 10);
+        dibujanteFormas.setColor(Color.WHITE);
+        for (int i = 0; i < CANTIDAD_PERSONAJES; i++) {
+            dibujanteFormas.rect(recuadrosPersonajes[i].x + 5, recuadrosPersonajes[i].y + 5, recuadrosPersonajes[i].width - 10, recuadrosPersonajes[i].height - 10);
         }
-        shapeRenderer.end();
+        dibujanteFormas.end();
 
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        loteDibujo.setProjectionMatrix(camara.combined);
+        loteDibujo.begin();
 
-        layout.setText(font, "SELECCIONA TU PERSONAJE");
-        font.draw(batch, layout, (1280f - layout.width) / 2f, 600f);
+        medidasTexto.setText(fuente, "SELECCIONA TU PERSONAJE");
+        fuente.draw(loteDibujo, medidasTexto, (1280f - medidasTexto.width) / 2f, 600f);
 
-        for (int i = 0; i < NUM_CHARACTERS; i++) {
-            float imgWidth = 80f;
-            float imgHeight = 80f;
-            float imgX = characterBoxes[i].x + (characterBoxes[i].width - imgWidth) / 2f;
-            float imgY = characterBoxes[i].y + (characterBoxes[i].height - imgHeight) / 2f + 10f;
+        for (int i = 0; i < CANTIDAD_PERSONAJES; i++) {
+            float anchoImagen = 80f;
+            float altoImagen = 80f;
+            float imagenX = recuadrosPersonajes[i].x + (recuadrosPersonajes[i].width - anchoImagen) / 2f;
+            float imagenY = recuadrosPersonajes[i].y + (recuadrosPersonajes[i].height - altoImagen) / 2f + 10f;
 
-            batch.draw(characterTextures[i], imgX, imgY, imgWidth, imgHeight);
+            loteDibujo.draw(texturasPersonajes[i], imagenX, imagenY, anchoImagen, altoImagen);
 
-            String label = "P" + (i + 1);
-            layout.setText(font, label);
-            font.draw(batch, label, characterBoxes[i].x + (characterBoxes[i].width - layout.width) / 2f, characterBoxes[i].y + 25f);
+            medidasTexto.setText(fuente, etiquetas[i]);
+            fuente.draw(loteDibujo, medidasTexto, recuadrosPersonajes[i].x + (recuadrosPersonajes[i].width - medidasTexto.width) / 2f, recuadrosPersonajes[i].y + 25f);
         }
 
-        layout.setText(font, "VOLVER");
-        font.draw(batch, layout, btnVolver.x + (btnVolver.width - layout.width) / 2f, btnVolver.y + (btnVolver.height + layout.height) / 2f);
+        medidasTexto.setText(fuente, "VOLVER");
+        fuente.draw(loteDibujo, medidasTexto, botonVolver.x + (botonVolver.width - medidasTexto.width) / 2f, botonVolver.y + (botonVolver.height + medidasTexto.height) / 2f);
 
-        batch.end();
+        loteDibujo.end();
     }
 
     @Override
-    public void resize(int width, int height) {
-        viewport.update(width, height, true);
+    public void resize(int ancho, int alto) {
+        vista.update(ancho, alto, true);
     }
 
     @Override
@@ -167,11 +165,11 @@ public class CharacterSelectScreen implements Screen {
 
     @Override
     public void dispose() {
-        batch.dispose();
-        shapeRenderer.dispose();
-        font.dispose();
-        for (Texture texture : characterTextures) {
-            if (texture != null) texture.dispose();
+        loteDibujo.dispose();
+        dibujanteFormas.dispose();
+        fuente.dispose();
+        for (Texture textura : texturasPersonajes) {
+            if (textura != null) textura.dispose();
         }
     }
 }

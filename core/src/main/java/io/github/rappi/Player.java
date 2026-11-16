@@ -13,12 +13,11 @@ public class Player {
     private Texture jugador;
     private Texture jugadorSalto;
     private Texture jugadorCaida;
-    private Sound jumpSound;
-    private boolean sonidoSaltoSonado = false;
+    private Sound sonidoSalto;
 
     private float x;
     private float y;
-    private Rectangle bounds; // Hitbox del jugador
+    private Rectangle zonaColision; // Hitbox del jugador
 
     // Físicas del salto
     private float velocidadY;
@@ -27,124 +26,134 @@ public class Player {
     private boolean enSuelo;
 
     // Control de los 3 carriles
-    private int nivelActual = 1; // 0 = Abajo, 1 = Medio, 2 = Arriba
+    private int carrilDestino = 1; // 0 = Abajo, 1 = Medio, 2 = Arriba
     private float[] posicionesY = new float[3];
     private float ySueloActual;
 
     private final float ancho = 103f;
     private final float alto = 103f;
 
-    public Player(Piso piso, int characterId) {
-        String sueloFile = "RepartidorSprites/jugador_suelo_" + characterId + ".png";
-        String aireFile = "RepartidorSprites/jugador_aire_" + characterId + ".png";
-        String caidaFile = "RepartidorSprites/jugador_caida_" + characterId + ".png";
+    public Player(Piso piso, int indicePersonaje) {
+        String archivoSuelo = "RepartidorSprites/jugador_suelo_" + indicePersonaje + ".png";
+        String archivoAire = "RepartidorSprites/jugador_aire_" + indicePersonaje + ".png";
+        String archivoCaida = "RepartidorSprites/jugador_caida_" + indicePersonaje + ".png";
 
-        if (Gdx.files.internal(sueloFile).exists()) {
-            jugador = new Texture(Gdx.files.internal(sueloFile));
+        if (Gdx.files.internal(archivoSuelo).exists()) {
+            jugador = new Texture(Gdx.files.internal(archivoSuelo));
         } else {
             jugador = new Texture(Gdx.files.internal("RepartidorSprites/jugador_suelo.png"));
         }
 
-        if (Gdx.files.internal(aireFile).exists()) {
-            jugadorSalto = new Texture(Gdx.files.internal(aireFile));
+        if (Gdx.files.internal(archivoAire).exists()) {
+            jugadorSalto = new Texture(Gdx.files.internal(archivoAire));
         } else {
             jugadorSalto = new Texture(Gdx.files.internal("RepartidorSprites/jugador_aire.png"));
         }
 
-        if (Gdx.files.internal(caidaFile).exists()) {
-            jugadorCaida = new Texture(Gdx.files.internal(caidaFile));
+        if (Gdx.files.internal(archivoCaida).exists()) {
+            jugadorCaida = new Texture(Gdx.files.internal(archivoCaida));
         } else if (Gdx.files.internal("RepartidorSprites/jugador_caida.png").exists()) {
             jugadorCaida = new Texture(Gdx.files.internal("RepartidorSprites/jugador_caida.png"));
         } else {
             jugadorCaida = jugadorSalto;
         }
 
-        posicionesY[0] = piso.getPosYCarril(0);
-        posicionesY[1] = piso.getPosYCarril(1);
-        posicionesY[2] = piso.getPosYCarril(2);
+        for (int carril = 0; carril < posicionesY.length; carril++) {
+            posicionesY[carril] = piso.getPosYCarril(carril);
+        }
 
-        x = 100f;
-        ySueloActual = posicionesY[nivelActual];
-        y = ySueloActual;
-
-        // Hitbox del jugador reducida para mayor margen de esquive
-        bounds = new Rectangle(x + 35f, y + 15f, ancho - 70f, alto - 30f);
-
-        velocidadY = 0f;
-        enSuelo = true;
+        zonaColision = new Rectangle(0f, 0f, ancho - 70f, alto - 30f);
+        reset();
 
         if (Gdx.files.internal("Sonidos/jump.mp3").exists()) {
-            jumpSound = Gdx.audio.newSound(Gdx.files.internal("Sonidos/jump.mp3"));
+            sonidoSalto = Gdx.audio.newSound(Gdx.files.internal("Sonidos/jump.mp3"));
         }
     }
 
-    public void update(float delta) {
+    private float alturaSalto;
+
+    public void reset() {
+        x = 100f;
+        carrilDestino = 1;
+        ySueloActual = posicionesY[carrilDestino];
+        y = ySueloActual;
+        alturaSalto = 0f;
+        velocidadY = 0f;
+        enSuelo = true;
+        zonaColision.setPosition(x + 35f, y + 15f);
+    }
+
+    public void update(float segundosTranscurridos) {
+        update(segundosTranscurridos, 100f);
+    }
+
+    public void update(float segundosTranscurridos, float destinoX) {
+        float paso = 180f * segundosTranscurridos;
+        x += MathUtils.clamp(destinoX - x, -paso, paso);
 
         // 1. SALTO FÍSICO (ESPACIO)
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) && enSuelo) {
             velocidadY = fuerzaSalto;
             enSuelo = false;
-            sonidoSaltoSonado = false;
 
-            if (jumpSound != null && !sonidoSaltoSonado) {
-                jumpSound.stop();
-                jumpSound.play(0.8f);
-                sonidoSaltoSonado = true;
+            if (sonidoSalto != null) {
+                sonidoSalto.stop();
+                sonidoSalto.play(0.8f);
+
             }
         }
 
         // 2. CAMBIO DE CARRIL (ARRIBA / ABAJO) - Solo en el suelo
         if (enSuelo) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.UP)) {
-                if (nivelActual < 2) {
-                    nivelActual++;
+                if (carrilDestino < 2) {
+                    carrilDestino++;
                 }
             } else if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN)) {
-                if (nivelActual > 0) {
-                    nivelActual--;
+                if (carrilDestino > 0) {
+                    carrilDestino--;
                 }
             }
         }
 
-        ySueloActual = posicionesY[nivelActual];
-
-        // 3. FÍSICAS Y DESPLAZAMIENTO
+        float avance = 1f - (float) Math.exp(-18f * segundosTranscurridos);
+        ySueloActual = MathUtils.lerp(ySueloActual, posicionesY[carrilDestino], avance);
         if (!enSuelo) {
-            velocidadY += gravedad * delta;
-            y += velocidadY * delta;
-
-            if (y <= ySueloActual) {
-                y = ySueloActual;
+            alturaSalto += velocidadY * segundosTranscurridos + 0.5f * gravedad * segundosTranscurridos * segundosTranscurridos;
+            velocidadY += gravedad * segundosTranscurridos;
+            if (alturaSalto <= 0f) {
+                alturaSalto = 0f;
                 velocidadY = 0f;
                 enSuelo = true;
             }
-        } else {
-            y = MathUtils.lerp(y, ySueloActual, 18f * delta);
         }
+        y = ySueloActual + alturaSalto;
 
         // Actualizar posición de la hitbox reducida
-        bounds.setPosition(x + 35f, y + 15f);
+        zonaColision.setPosition(x + 35f, y + 15f);
     }
 
-    public void draw(SpriteBatch batch) {
-        Texture spriteActual;
+    public void draw(SpriteBatch loteDibujo) {
+        Texture texturaActual;
         if (enSuelo) {
-            spriteActual = jugador;
+            texturaActual = jugador;
         } else if (velocidadY < 0) {
-            spriteActual = jugadorCaida;
+            texturaActual = jugadorCaida;
         } else {
-            spriteActual = jugadorSalto;
+            texturaActual = jugadorSalto;
         }
 
-        batch.draw(spriteActual, x, y, ancho, alto);
+        loteDibujo.draw(texturaActual, x, y, ancho, alto);
     }
 
     public Rectangle getBounds() {
-        return bounds;
+        return zonaColision;
     }
 
     public int getNivelActual() {
-        return nivelActual;
+        if (ySueloActual < (posicionesY[0] + posicionesY[1]) / 2f) return 0;
+        if (ySueloActual < (posicionesY[1] + posicionesY[2]) / 2f) return 1;
+        return 2;
     }
 
     public void dispose() {
@@ -153,8 +162,8 @@ public class Player {
         if (jugadorCaida != null && jugadorCaida != jugadorSalto) {
             jugadorCaida.dispose();
         }
-        if (jumpSound != null) {
-            jumpSound.dispose();
+        if (sonidoSalto != null) {
+            sonidoSalto.dispose();
         }
     }
 }
