@@ -69,7 +69,6 @@ final class Patrullero {
 
     Fase obtenerFase() { return fase; }
 
-    // El repartidor deja espacio para ver el patrullero detrás de él.
     float destinoJugador() { return fase == Fase.AUSENTE ? 100f : 420f; }
 
     int segundosRestantes() {
